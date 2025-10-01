@@ -408,10 +408,10 @@ export default async function PackageDetail({ params }) {
               <div className="card-body space-y-3">
                 <p className="text-sm font-semibold">Why book with us?</p>
                 <ul className="text-sm text-slate-700 space-y-2">
-                  <li className="flex gap-2"><span>✅</span><span>Certified local operators</span></li>
-                  <li className="flex gap-2"><span>✅</span><span>24/7 support in your language</span></li>
-                  <li className="flex gap-2"><span>✅</span><span>Flexible change policy</span></li>
-                  <li className="flex gap-2"><span>✅</span><span>Secure payments</span></li>
+                  <li className="flex gap-2"><span>*</span><span>Certified local operators</span></li>
+                  <li className="flex gap-2"><span>*</span><span>24/7 support in your language</span></li>
+                  <li className="flex gap-2"><span>*</span><span>Flexible change policy</span></li>
+                  <li className="flex gap-2"><span>*</span><span>Secure payments</span></li>
                 </ul>
               </div>
             </div>

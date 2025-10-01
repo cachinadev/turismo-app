@@ -225,7 +225,7 @@ export default function BookingForm({ pkg }) {
               value={form.country}
               onChange={onChange}
               className="input w-full"
-              placeholder="USA"
+              placeholder="Your country"
               disabled={loading}
             />
           </div>
