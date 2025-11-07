@@ -1,100 +1,145 @@
 // frontend/app/components/landing/HeroSearch.jsx
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import React, { useEffect, useMemo, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 
-const LOCALES = ["es", "en", "fr", "pt", "ru"];
-const CITIES = ["Puno", "Cusco", "Arequipa", "Lima", "Others"];
-const SUGGESTIONS = ["Uros Islands", "Taquile", "Machu Picchu"];
+/* ------------------------------------------------------
+ * 🌍 Localization Settings
+ * ------------------------------------------------------ */
+const SUPPORTED = ['es', 'en', 'fr', 'pt', 'ru'];
+const DEFAULT_LOCALE = 'en';
 
-export default function HeroSearch() {
+/* ------------------------------------------------------
+ * 🔎 Utility helpers
+ * ------------------------------------------------------ */
+function useLocale(explicit) {
+  const pathname = usePathname() || '/';
+  return useMemo(() => {
+    if (explicit && SUPPORTED.includes(explicit)) return explicit;
+    const seg = pathname.split('/').filter(Boolean)[0];
+    return SUPPORTED.includes(seg) ? seg : DEFAULT_LOCALE;
+  }, [pathname, explicit]);
+}
+
+const get = (obj, path) =>
+  path.split('.').reduce((acc, p) => (acc == null ? acc : acc[p]), obj);
+
+const tr = (dict, key, fb = '') => {
+  const v = get(dict, key);
+  return typeof v === 'string' ? v : fb;
+};
+
+const trFirst = (dict, keys, fb = '') => {
+  for (const k of keys) {
+    const v = get(dict, k);
+    if (typeof v === 'string') return v;
+  }
+  return fb;
+};
+
+/* ------------------------------------------------------
+ * 🚀 Component
+ * ------------------------------------------------------ */
+export default function HeroSearch({ locale }) {
   const router = useRouter();
-  const pathname = usePathname() || "/";
+  const lang = useLocale(locale);
 
-  // Locale prefix detection (so /en stays /en)
-  const firstSeg = pathname.split("/")[1] || "";
-  const currentLocale = LOCALES.includes(firstSeg) ? firstSeg : null;
-  const localizedPath = (p) => (currentLocale ? `/${currentLocale}${p}` : p);
+  const [msgs, setMsgs] = useState({});
+  const [query, setQuery] = useState('');
 
-  const [q, setQ] = useState("");
-  const [city, setCity] = useState("Puno");
+  /* ---- Load localized messages dynamically ---- */
+  useEffect(() => {
+    let mounted = true;
+    import(`@/messages/${lang}.json`)
+      .then((m) => mounted && setMsgs(m.default || {}))
+      .catch(() => mounted && setMsgs({}));
+    return () => {
+      mounted = false;
+    };
+  }, [lang]);
 
-  function onSubmit(e) {
+  /* ---- Localized strings ---- */
+  const placeholder = trFirst(
+    msgs,
+    ['Home.searchPlaceholder', 'Packages.searchPlaceholder'],
+    'Search tours (Uros, Taquile, Machu Picchu...)'
+  );
+
+  const btnLabel = trFirst(
+    msgs,
+    ['Home.searchButton', 'Packages.searchButton'],
+    'Search'
+  );
+
+  const tryPrefix = trFirst(
+    msgs,
+    ['Home.searchTryPrefix', 'Packages.searchTryPrefix'],
+    'Try:'
+  );
+
+  const examplesRaw = trFirst(
+    msgs,
+    ['Home.searchTryExamples', 'Packages.searchTryExamples'],
+    'Uros Islands, Taquile, Machu Picchu'
+  );
+
+  const examples = examplesRaw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  /* ---- Submit handler ---- */
+  const onSubmit = (e) => {
     e.preventDefault();
-    const params = new URLSearchParams();
-    if (q.trim()) params.set("q", q.trim());
-    if (city) params.set("city", city);
-    router.push(`${localizedPath("/packages")}?${params.toString()}`);
-  }
+    const trimmed = query.trim();
+    if (trimmed) router.push(`/${lang}/packages?q=${encodeURIComponent(trimmed)}`);
+  };
 
-  function quick(term) {
-    setQ(term);
-    setTimeout(() => {
-      const params = new URLSearchParams({ q: term, city });
-      router.push(`${localizedPath("/packages")}?${params.toString()}`);
-    }, 0);
-  }
+  /* ---- Auto-fill from example click ---- */
+  const onExampleClick = (ex) => {
+    setQuery(ex);
+    router.push(`/${lang}/packages?q=${encodeURIComponent(ex)}`);
+  };
 
+  /* ------------------------------------------------------
+   * 💎 UI
+   * ------------------------------------------------------ */
   return (
-    <div className="mx-auto w-full max-w-2xl bg-white/95 backdrop-blur-lg rounded-2xl p-6 shadow-xl border border-slate-200">
-      {/* Search form */}
+    <div className="w-full max-w-4xl mx-auto">
       <form
         onSubmit={onSubmit}
-        className="grid grid-cols-1 md:grid-cols-3 gap-4"
-        role="search"
-        aria-label="Package search"
+        className="flex items-stretch bg-white/95 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-sm border border-white/20 focus-within:ring-4 focus-within:ring-amber-300 transition-all"
+        aria-label={placeholder}
       >
-        {/* Keyword */}
         <input
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className="input input-bordered w-full"
-          placeholder="Search tours (Uros, Taquile, Machu Picchu...)"
-          aria-label="Search by tour name or description"
-          autoComplete="off"
+          type="text"
+          name="q"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={placeholder}
+          className="flex-1 px-5 py-4 text-gray-800 placeholder-gray-400 focus:outline-none text-base sm:text-lg"
         />
-
-        {/* City */}
-        <select
-          className="select select-bordered w-full"
-          value={city}
-          onChange={(e) => setCity(e.target.value)}
-          aria-label="Select city"
-        >
-          {CITIES.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-
-        {/* Submit */}
         <button
           type="submit"
-          className="btn btn-primary w-full font-semibold"
-          aria-label="Search packages"
+          className="px-8 py-4 bg-brand-600 hover:bg-brand-700 text-white font-semibold text-base sm:text-lg transition-colors duration-200"
         >
-          Search
+          {btnLabel}
         </button>
       </form>
 
-      {/* Suggestions */}
-      <div className="mt-4 text-center text-xs text-slate-600">
-        Try:{" "}
-        {SUGGESTIONS.map((s, i) => (
-          <span key={s}>
-            <button
-              type="button"
-              className="badge badge-ghost hover:bg-brand-50 hover:text-brand-700 transition px-2 py-1"
-              title={`Search for ${s}`}
-              onClick={() => quick(s)}
-            >
-              {s}
-            </button>
-            {i < SUGGESTIONS.length - 1 ? " " : null}
-          </span>
+      {/* Example terms */}
+      <div className="mt-4 text-white/90 text-sm sm:text-base text-center sm:text-left">
+        <span className="font-medium text-white/80 mr-2">{tryPrefix}</span>
+        {examples.map((ex, i) => (
+          <button
+            key={`${ex}-${i}`}
+            type="button"
+            onClick={() => onExampleClick(ex)}
+            className="underline decoration-white/40 hover:decoration-white hover:text-amber-200 transition-colors mx-1"
+          >
+            {ex}
+          </button>
         ))}
       </div>
     </div>

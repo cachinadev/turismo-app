@@ -1,38 +1,60 @@
 // frontend/middleware.js
 import { NextResponse } from 'next/server';
 
-const LOCALES = ['es', 'en', 'fr', 'pt', 'ru'];
-const PUBLIC_FILE = /\.(?:.*)$/;
+/* ------------------------------------------------------
+ * 🌐 Supported Locales
+ * ------------------------------------------------------ */
+const SUPPORTED_LOCALES = ['en', 'es', 'fr', 'pt', 'ru']; // English is default
+const DEFAULT_LOCALE = 'en';
 
+/* ------------------------------------------------------
+ * 🚦 Middleware entry point
+ * ------------------------------------------------------ */
 export function middleware(req) {
-  const { pathname } = req.nextUrl;
+  const { pathname, searchParams } = req.nextUrl;
 
-  // Skip next internals, API routes and public files
+  // ✅ Skip static files, API routes, and Next internals
   if (
-    pathname.startsWith('/api') ||
     pathname.startsWith('/_next') ||
+    pathname.startsWith('/api') ||
     pathname.startsWith('/favicon') ||
-    PUBLIC_FILE.test(pathname)
+    pathname.startsWith('/robots') ||
+    pathname.startsWith('/sitemap') ||
+    /\.(.*)$/.test(pathname)
   ) {
-    return;
+    return NextResponse.next();
   }
 
-  // If URL starts with a locale, rewrite to the same path without the prefix.
-  // The URL stays locale-prefixed, but we serve the unprefixed route.
-  const seg = pathname.split('/')[1];
-  if (LOCALES.includes(seg)) {
-    const stripped = pathname.replace(`/${seg}`, '') || '/';
-    const url = req.nextUrl.clone();
-    url.pathname = stripped;
-    const res = NextResponse.rewrite(url);
-    // Persist the chosen locale for SSR (optional but nice)
-    res.cookies.set('NEXT_LOCALE', seg, { path: '/' });
-    return res;
+  const segments = pathname.split('/').filter(Boolean);
+  const firstSegment = segments[0];
+
+  /* ------------------------------------------------------
+   * Case 1️⃣: Already localized (starts with /en, /es, /fr, etc.)
+   * ------------------------------------------------------ */
+  if (SUPPORTED_LOCALES.includes(firstSegment)) {
+    // Store locale in cookie for consistency (used by SSR & client)
+    const response = NextResponse.next();
+    response.cookies.set('NEXT_LOCALE', firstSegment, {
+      path: '/',
+      maxAge: 60 * 60 * 24 * 30, // 30 days
+      sameSite: 'lax',
+    });
+    return response;
   }
 
-  // No locale prefix ⇒ let it through
-  return;
+  /* ------------------------------------------------------
+   * Case 2️⃣: No locale prefix → Redirect to default locale
+   * ------------------------------------------------------ */
+  const redirectUrl = req.nextUrl.clone();
+  redirectUrl.pathname = `/${DEFAULT_LOCALE}${pathname}`;
+  return NextResponse.redirect(redirectUrl);
 }
 
-// Limit the middleware to everything (except static) – default matcher is fine.
-// export const config = { matcher: ['/((?!_next|api|.*\\..*).*)'] };
+/* ------------------------------------------------------
+ * ⚙️ Matcher — only run on non-static pages
+ * ------------------------------------------------------ */
+export const config = {
+  matcher: [
+    '/((?!_next|api|favicon|robots|sitemap|.*\\..*).*)',
+  ],
+};

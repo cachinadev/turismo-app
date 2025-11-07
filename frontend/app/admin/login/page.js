@@ -12,7 +12,7 @@ function AdminLoginInner() {
   const sp = useSearchParams();
 
   // Redirect target after login (optional: ?next=/admin/packages)
-  const next = sp?.get('next') || '/admin/packages';
+  const next = sp?.get('next') || '/admin/dashboard';
   const force = sp?.get('force') === '1';   // ignore any existing token
   const logout = sp?.get('logout') === '1'; // clear any existing token
 

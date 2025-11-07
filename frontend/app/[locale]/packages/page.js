@@ -1,6 +1,7 @@
 // frontend/app/packages/page.js
 import { Suspense } from 'react';
-import PackagesInner from './PackagesInner';
+import PackagesInner from '@/app/packages/PackagesInner';
+
 
 export default function PackagesPage() {
   return (

@@ -9,7 +9,8 @@ const rateLimit = require('express-rate-limit');
 
 const router = express.Router();
 
-const uploadsDir = path.join(__dirname, '../../uploads');
+// ---- Ensure uploads directory (under /public for static serving)
+const uploadsDir = path.join(__dirname, '../../public/uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 // ---- Multer storage
@@ -30,7 +31,8 @@ const ALLOWED_MIME = new Set([
 
 function fileFilter(_req, file, cb) {
   const ext = (path.extname(file.originalname) || '').toLowerCase();
-  if (!ALLOWED_EXT.has(ext) || !ALLOWED_MIME.has(file.mimetype)) {
+  const mime = file.mimetype.toLowerCase();
+  if (!ALLOWED_EXT.has(ext) || !ALLOWED_MIME.has(mime)) {
     const err = new Error('Formato no permitido');
     err.status = 400;
     return cb(err);
@@ -51,10 +53,10 @@ function getBaseUrl(req) {
   return `${req.protocol}://${req.get('host')}`;
 }
 
-// ---- Rate limit (admins only, but extra layer)
+// ---- Rate limit
 const uploadLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, // 5 min
-  max: 50, // max 50 uploads per 5 min
+  max: 50,
   message: { error: 'Demasiadas cargas, intente más tarde.' },
 });
 
@@ -69,35 +71,36 @@ router.post('/', auth('admin'), uploadLimiter, upload.array('files', 10), async 
     // Import file-type dynamically (ESM module in CommonJS)
     const { fileTypeFromFile } = await import('file-type');
 
-    // Stronger validation with magic bytes
+    const files = [];
     for (const f of req.files || []) {
       const info = await fileTypeFromFile(f.path).catch(() => null);
-      const valid = info && ALLOWED_MIME.has(info.mime);
+
+      // Stronger validation with magic bytes + fallback
+      const valid = (info && ALLOWED_MIME.has(info.mime)) || ALLOWED_MIME.has(f.mimetype);
       if (!valid) {
         fs.unlinkSync(f.path);
-        const err = new Error(`Archivo con firma inválida: ${f.originalname}`);
+        const err = new Error(`Archivo inválido o no permitido: ${f.originalname}`);
         err.status = 400;
         throw err;
       }
-    }
 
-    const files = (req.files || []).map((f) => {
       const ext = (path.extname(f.originalname) || '').toLowerCase();
       const isVideo = ['.mp4', '.mov', '.avi'].includes(ext);
-      const filename = path.basename(f.path);
+      const filename = f.filename; // multer already saved unique uuid+ext
       const relativePath = `/uploads/${filename}`;
-      return {
-        id: uuid(), // optional: unique ID for DB reference
+
+      files.push({
+        id: filename, // unique identifier
         url: `${base}${relativePath}`,
         relativePath,
         filename,
-        originalName: path.basename(f.originalname),
+        originalName: f.originalname,
         fieldname: f.fieldname,
         type: isVideo ? 'video' : 'image',
         size: f.size,
         mimetype: f.mimetype,
-      };
-    });
+      });
+    }
 
     return res.status(201).json({ files });
   } catch (err) {

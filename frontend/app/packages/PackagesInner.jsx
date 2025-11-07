@@ -1,20 +1,28 @@
 // frontend/app/packages/PackagesInner.jsx
 /* eslint-disable @next/next/no-img-element */
-// frontend/app/packages/PackagesInner.jsx
-/* eslint-disable @next/next/no-img-element */
+
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { API_BASE } from '@/app/lib/config';
 import { mediaUrl } from '@/app/lib/media';
-
-// Optional: if you don't already import Leaflet CSS globally
 import 'leaflet/dist/leaflet.css';
 
-/* =================== helpers =================== */
+/* =================== Translation helper =================== */
+async function loadMessages(locale) {
+  try {
+    const mod = await import(`@/messages/${locale}.json`);
+    return mod.default?.Packages || {};
+  } catch {
+    console.warn(`⚠️ Missing translations for locale "${locale}"`);
+    return {};
+  }
+}
+const tr = (dict, key, fallback) => dict?.[key] ?? (fallback ?? key);
 
+/* =================== helpers =================== */
 const money = (v, curr = 'PEN', locale = 'en-US') =>
   new Intl.NumberFormat(locale, {
     style: 'currency',
@@ -24,11 +32,11 @@ const money = (v, curr = 'PEN', locale = 'en-US') =>
 
 const CITIES = ['', 'Puno', 'Cusco', 'Lima', 'Arequipa', 'Others'];
 const LIMIT_OPTIONS = [9, 12, 24, 48];
-const SORTS = [
-  { v: '', label: 'Relevance' },
-  { v: 'price_asc', label: 'Price ↑' },
-  { v: 'price_desc', label: 'Price ↓' },
-  { v: 'recent', label: 'Most recent' },
+const RAW_SORTS = [
+  { v: '', label: 'Relevance', key: 'sort.relevance' },
+  { v: 'price_asc', label: 'Price ↑', key: 'sort.priceAsc' },
+  { v: 'price_desc', label: 'Price ↓', key: 'sort.priceDesc' },
+  { v: 'recent', label: 'Most recent', key: 'sort.recent' },
 ];
 
 // Default map centers per city (fallbacks for missing coords)
@@ -78,6 +86,7 @@ const withinBounds = (p, b) => {
  * - zoom: number
  * - onSelect(pkg) / selectedId
  * - onBoundsChanged({n,s,e,w})
+ * - t: translations dict for map strings
  */
 function PackagesMap({
   packages = [],
@@ -86,6 +95,7 @@ function PackagesMap({
   selectedId,
   onSelect,
   onBoundsChanged,
+  t = {},
 }) {
   const mapRef = useRef(null);
   const LRef = useRef(null);      // keep leaflet module
@@ -132,7 +142,6 @@ function PackagesMap({
         const bounds = L.latLngBounds(
           packages.map(p => [p.location.lat, p.location.lng])
         );
-        // if all are same coord, padding with zoom
         if (bounds.isValid()) {
           map.fitBounds(bounds.pad(0.2), { animate: false });
         }
@@ -176,7 +185,7 @@ function PackagesMap({
           </div>
         `,
         iconSize: [80, 84],
-        iconAnchor: [40, 84], // bottom center
+        iconAnchor: [40, 84],
         popupAnchor: [0, -90],
       });
 
@@ -238,6 +247,23 @@ function PackagesMap({
 export default function PackagesInner({ initial }) {
   const router = useRouter();
   const sp = useSearchParams();
+  const pathname = usePathname();
+  const locale = (pathname.split('/')[1] || 'es').split('?')[0]; // detect from /en/packages
+
+  const [tt, setTT] = useState({});
+  useEffect(() => {
+    loadMessages(locale).then(setTT);
+  }, [locale]);
+
+  // Localize sort labels on the fly (fallback to English labels)
+  const SORTS = useMemo(
+    () =>
+      RAW_SORTS.map(s => ({
+        v: s.v,
+        label: tr(tt, s.key, s.label),
+      })),
+    [tt]
+  );
 
   // --- NoSSR gate for map subtree: fixes hydration mismatch ---
   const [isClient, setIsClient] = useState(false);
@@ -330,9 +356,12 @@ export default function PackagesInner({ initial }) {
     const nextQS = params.toString();
     const curQS  = sp.toString();
     if (nextQS !== curQS) {
-      router.replace(nextQS ? `/packages?${nextQS}` : '/packages', { scroll: false });
+      router.replace(
+        nextQS ? `/${locale}/packages?${nextQS}` : `/${locale}/packages`,
+        { scroll: false }
+      );
     }
-  }, [qDeb, city, category, maxDur, minPrice, maxPrice, sort, page, limit, view, sp, router]);
+  }, [qDeb, city, category, maxDur, minPrice, maxPrice, sort, page, limit, view, sp, router, locale]);
 
   // Abort stale requests
   const abortRef = useRef(null);
@@ -360,10 +389,7 @@ export default function PackagesInner({ initial }) {
       params.set('page', String(page));
       params.set('limit', String(limit));
 
-      const res = await fetch(`${API_BASE}/api/packages?${params.toString()}`, {
-        cache: 'no-store',
-        signal: ac.signal,
-      });
+      const res = await fetch(`${API_BASE}/api/packages?${params}`, { cache: 'no-store', signal: ac.signal });
       const json = await res.json().catch(() => ({ items: [] }));
 
       const listRaw = Array.isArray(json) ? json : (json.items || []);
@@ -490,15 +516,15 @@ export default function PackagesInner({ initial }) {
 
   const chips = useMemo(() => {
     const cs = [];
-    if (city) cs.push({ key: 'city', label: `City: ${city}`, clear: () => setCity('') });
-    if (category) cs.push({ key: 'category', label: `Category: ${category}`, clear: () => setCategory('') });
+    if (city) cs.push({ key: 'city', label: `${tr(tt,'chip.city','City')}: ${city}`, clear: () => setCity('') });
+    if (category) cs.push({ key: 'category', label: `${tr(tt,'chip.category','Category')}: ${category}`, clear: () => setCategory('') });
     if (toNumOrNull(minPrice) != null) cs.push({ key: 'minPrice', label: `≥ ${money(minPrice)}`, clear: () => setMinPrice('') });
     if (toNumOrNull(maxPrice) != null) cs.push({ key: 'maxPrice', label: `≤ ${money(maxPrice)}`, clear: () => setMaxPrice('') });
-    if (toNumOrNull(maxDur) != null)   cs.push({ key: 'maxDur',   label: `≤ ${maxDur} h`,      clear: () => setMaxDur('') });
+    if (toNumOrNull(maxDur) != null)   cs.push({ key: 'maxDur',   label: `≤ ${maxDur} ${tr(tt,'hours','h')}`, clear: () => setMaxDur('') });
     if (qDeb) cs.push({ key: 'q', label: `"${qDeb}"`, clear: () => setQ('') });
-    if (view === 'map' && mapFilterActive) cs.push({ key: 'bounds', label: 'In this area', clear: () => setMapFilterActive(false) });
+    if (view === 'map' && mapFilterActive) cs.push({ key: 'bounds', label: tr(tt,'bounds','In this area'), clear: () => setMapFilterActive(false) });
     return cs;
-  }, [city, category, minPrice, maxPrice, maxDur, qDeb, view, mapFilterActive]);
+  }, [city, category, minPrice, maxPrice, maxDur, qDeb, view, mapFilterActive, tt]);
 
   /* =================== Render =================== */
   return (
@@ -506,9 +532,11 @@ export default function PackagesInner({ initial }) {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Travel Packages</h1>
+          <h1 className="text-2xl md:text-3xl font-bold">
+            {tr(tt, 'title', 'Travel Packages')}
+          </h1>
           <p className="text-slate-600 text-sm" aria-live="polite">
-            {totalFiltered} result{totalFiltered === 1 ? '' : 's'}
+            {totalFiltered} {tr(tt, 'results', 'results')}
           </p>
         </div>
 
@@ -516,16 +544,16 @@ export default function PackagesInner({ initial }) {
           <button
             className={`btn ${view === 'list' ? 'btn-primary' : 'btn-ghost'}`}
             onClick={() => setView('list')}
-            title="View as list"
+            title={tr(tt, 'listView', 'List')}
           >
-            🗒️ List
+            🗒️ {tr(tt, 'listView', 'List')}
           </button>
           <button
             className={`btn ${view === 'map' ? 'btn-primary' : 'btn-ghost'}`}
             onClick={() => setView('map')}
-            title="View map"
+            title={tr(tt, 'mapView', 'Map')}
           >
-            🗺️ Map
+            🗺️ {tr(tt, 'mapView', 'Map')}
           </button>
         </div>
       </div>
@@ -534,11 +562,11 @@ export default function PackagesInner({ initial }) {
       <div className="card">
         <div className="card-body grid grid-cols-1 md:grid-cols-6 gap-3">
           <div className="md:col-span-2">
-            <label className="sr-only" htmlFor="q">Search</label>
+            <label className="sr-only" htmlFor="q">{tr(tt, 'searchPlaceholder', 'Search')}</label>
             <input
               id="q"
               className="input w-full"
-              placeholder="Search by title or description…"
+              placeholder={tr(tt, 'searchPlaceholder', 'Search by title or description…')}
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && onApplyFilters()}
@@ -546,17 +574,23 @@ export default function PackagesInner({ initial }) {
           </div>
 
           <div>
-            <label className="sr-only" htmlFor="city">City</label>
+            <label className="sr-only" htmlFor="city">{tr(tt,'allCities','All cities')}</label>
             <select id="city" className="input w-full" value={city} onChange={(e) => setCity(e.target.value)}>
-              {CITIES.map((c) => <option key={c || 'all'} value={c}>{c || 'All cities'}</option>)}
+              {CITIES.map((c) => (
+                <option key={c || 'all'} value={c}>
+                  {c || tr(tt,'allCities','All cities')}
+                </option>
+              ))}
             </select>
           </div>
 
           <div>
-            <label className="sr-only" htmlFor="category">Category</label>
+            <label className="sr-only" htmlFor="category">{tr(tt,'allCategories','All categories')}</label>
             <select id="category" className="input w-full" value={category} onChange={(e) => setCategory(e.target.value)}>
               {categories.map((c) => (
-                <option key={c || 'all'} value={c}>{c || 'All categories'}</option>
+                <option key={c || 'all'} value={c}>
+                  {c || tr(tt,'allCategories','All categories')}
+                </option>
               ))}
             </select>
           </div>
@@ -573,7 +607,7 @@ export default function PackagesInner({ initial }) {
               className="input w-full"
               type="number"
               min={0}
-              placeholder="Min $"
+              placeholder={`${tr(tt,'priceFrom','From')} $`}
               value={minPrice}
               onChange={(e) => setMinPrice(e.target.value)}
             />
@@ -581,7 +615,7 @@ export default function PackagesInner({ initial }) {
               className="input w-full"
               type="number"
               min={0}
-              placeholder="Max $"
+              placeholder={`Max $`}
               value={maxPrice}
               onChange={(e) => setMaxPrice(e.target.value)}
             />
@@ -589,7 +623,7 @@ export default function PackagesInner({ initial }) {
               className="input w-full"
               type="number"
               min={1}
-              placeholder="≤ hours"
+              placeholder={`≤ ${tr(tt,'hours','hours')}`}
               value={maxDur}
               onChange={(e) => setMaxDur(e.target.value)}
             />
@@ -597,9 +631,11 @@ export default function PackagesInner({ initial }) {
 
           <div className="md:col-span-6 flex items-center gap-2">
             <button className="btn" onClick={onApplyFilters} aria-busy={loading ? 'true' : 'false'}>
-              Apply
+              {tr(tt,'apply','Apply')}
             </button>
-            <button className="btn btn-ghost" onClick={onClearFilters}>Clear</button>
+            <button className="btn btn-ghost" onClick={onClearFilters}>
+              {tr(tt,'clear','Clear')}
+            </button>
           </div>
         </div>
 
@@ -611,7 +647,7 @@ export default function PackagesInner({ initial }) {
                 key={c.key}
                 className="badge bg-slate-100 hover:bg-slate-200"
                 onClick={c.clear}
-                title="Remove filter"
+                title={tr(tt,'removeFilter','Remove filter')}
               >
                 {c.label} ✕
               </button>
@@ -625,7 +661,9 @@ export default function PackagesInner({ initial }) {
         <div className="card">
           <div className="card-body">
             <p className="text-red-600">{err}</p>
-            <button className="btn btn-ghost mt-2" onClick={fetchData}>Retry</button>
+            <button className="btn btn-ghost mt-2" onClick={fetchData}>
+              {tr(tt,'retry','Retry')}
+            </button>
           </div>
         </div>
       )}
@@ -647,7 +685,7 @@ export default function PackagesInner({ initial }) {
         !isClient ? (
           <div className="card">
             <div className="h-[70vh] w-full bg-slate-100 rounded-xl flex items-center justify-center">
-              <p className="text-slate-500">Loading map...</p>
+              <p className="text-slate-500">{tr(tt,'loadingMap','Loading map...')}</p>
             </div>
           </div>
         ) : (
@@ -660,6 +698,7 @@ export default function PackagesInner({ initial }) {
                 onBoundsChanged={(b) => setMapBounds(b)} // expects {n,s,e,w}
                 center={CITY_CENTER.Others}
                 zoom={5}
+                t={tt}
               />
             </div>
 
@@ -667,19 +706,19 @@ export default function PackagesInner({ initial }) {
             <div className="absolute top-3 left-3 flex flex-col sm:flex-row gap-2">
               <button
                 className="btn btn-ghost btn-sm"
-                title="Show all visible results"
+                title={tr(tt,'showAll','Show all visible results')}
                 onClick={() => setMapFilterActive(false)}
                 disabled={!mapFilterActive}
               >
-                Show all
+                {tr(tt,'showAll','Show all')}
               </button>
               <button
                 className="btn btn-primary btn-sm"
-                title="Filter to current map area"
+                title={tr(tt,'searchArea','Filter to current map area')}
                 onClick={() => setMapFilterActive(true)}
                 disabled={!mapBounds}
               >
-                Search this area
+                {tr(tt,'searchArea','Search this area')}
               </button>
             </div>
 
@@ -704,8 +743,8 @@ export default function PackagesInner({ initial }) {
                         <button
                           className="btn btn-ghost btn-sm"
                           onClick={() => setSelectedId(null)}
-                          aria-label="Close"
-                          title="Close"
+                          aria-label={tr(tt,'close','Close')}
+                          title={tr(tt,'close','Close')}
                         >
                           ✕
                         </button>
@@ -714,8 +753,8 @@ export default function PackagesInner({ initial }) {
                         <span className="text-brand-700 font-semibold">
                           {money(Number(selectedPkg.effectivePrice ?? selectedPkg.price), selectedPkg.currency)}
                         </span>
-                        <Link href={`/packages/${selectedPkg.slug}`} className="btn btn-primary btn-sm">
-                          View details
+                        <Link href={`/${locale}/packages/${selectedPkg.slug}`} className="btn btn-primary btn-sm">
+                          {tr(tt,'viewDetails','View details')}
                         </Link>
                       </div>
                     </div>
@@ -728,14 +767,16 @@ export default function PackagesInner({ initial }) {
       ) : pageItems.length === 0 ? (
         <div className="card">
           <div className="card-body">
-            <p className="text-slate-600">No packages match your filters.</p>
+            <p className="text-slate-600">{tr(tt,'noPackages','No packages match your filters.')}</p>
             <ul className="list-disc pl-5 text-slate-500 text-sm mt-2 space-y-1">
-              <li>Try removing some filters.</li>
-              <li>Increase the maximum price or duration.</li>
-              <li>Search with a broader keyword.</li>
+              <li>{tr(tt,'tip.removeFilters','Try removing some filters.')}</li>
+              <li>{tr(tt,'tip.raiseLimits','Increase the maximum price or duration.')}</li>
+              <li>{tr(tt,'tip.broaderQuery','Search with a broader keyword.')}</li>
             </ul>
             <div className="mt-3">
-              <button className="btn btn-ghost" onClick={onClearFilters}>Clear filters</button>
+              <button className="btn btn-ghost" onClick={onClearFilters}>
+                {tr(tt,'clear','Clear')}
+              </button>
             </div>
           </div>
         </div>
@@ -755,7 +796,11 @@ export default function PackagesInner({ initial }) {
               const blurb = p.shortDescription || p.summary || shortText(p.description, 140);
 
               return (
-                <Link key={id} href={`/packages/${p.slug}`} className="group block overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow">
+                <Link
+                  key={id}
+                  href={`/${locale}/packages/${p.slug}`} 
+                  className="group block overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow"
+                >
                   <div className="relative h-56 w-full overflow-hidden">
                     {/* hover slider */}
                     {images.map((src, i) => (
@@ -770,7 +815,11 @@ export default function PackagesInner({ initial }) {
                     ))}
                     <div className="absolute top-3 left-3 flex gap-2">
                       {p.city && <span className="badge">{p.city}</span>}
-                      {promo && <span className="badge bg-amber-500 text-white">{percent > 0 ? `-${percent}%` : 'Deal'}</span>}
+                      {promo && (
+                        <span className="badge bg-amber-500 text-white">
+                          {percent > 0 ? `-${percent}%` : tr(tt,'promo','Deal')}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -791,12 +840,14 @@ export default function PackagesInner({ initial }) {
                           <span className="font-semibold">{money(priceNow, p.currency)}</span>
                         )}
                       </div>
-                      <span className="text-xs text-slate-500">{p.durationHours || 8} h</span>
+                      <span className="text-xs text-slate-500">
+                        {p.durationHours || 8} {tr(tt,'hours','h')}
+                      </span>
                     </div>
 
                     {Array.isArray(p.languages) && p.languages.length > 0 && (
                       <div className="mt-2 text-xs text-slate-500">
-                        Languages: {p.languages.join(', ')}
+                        {tr(tt,'availableIn','Languages')}: {p.languages.join(', ')}
                       </div>
                     )}
                   </div>
@@ -808,7 +859,7 @@ export default function PackagesInner({ initial }) {
           {/* Pagination */}
           <div className="flex items-center justify-between mt-6">
             <div className="text-sm text-slate-600">
-              Page {page} of {pages}
+              {tr(tt,'page','Page')} {page} {tr(tt,'of','of')} {pages}
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -816,23 +867,29 @@ export default function PackagesInner({ initial }) {
                 disabled={page <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
-                ← Previous
+                ← {tr(tt,'prev','Previous')}
               </button>
-              <label className="sr-only" htmlFor="limit">Items per page</label>
+              <label className="sr-only" htmlFor="limit">
+                {tr(tt,'perPage','Items per page')}
+              </label>
               <select
                 id="limit"
                 className="input"
                 value={limit}
                 onChange={(e) => { setPage(1); setLimit(parseInt(e.target.value, 10)); }}
               >
-                {LIMIT_OPTIONS.map((n) => <option key={n} value={n}>{n}/page</option>)}
+                {LIMIT_OPTIONS.map((n) => (
+                  <option key={n} value={n}>
+                    {n}/{tr(tt,'perPageShort','page')}
+                  </option>
+                ))}
               </select>
               <button
                 className="btn btn-ghost"
                 disabled={page >= pages}
                 onClick={() => setPage((p) => Math.min(pages, p + 1))}
               >
-                Next →
+                {tr(tt,'next','Next')} →
               </button>
             </div>
           </div>

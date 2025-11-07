@@ -1,45 +1,82 @@
-// frontend/app/components/WhatsAppFloat.jsx
+//frontend/app/components/WhatsAppFloat.jsx
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { CONTACT_PHONE, WHATSAPP_DEFAULT_MESSAGE } from '@/app/lib/config';
 
+/* ------------------------------------------------------
+ * 🔧 Config & Defaults
+ * ------------------------------------------------------ */
 const HIDE_ON_PREFIXES = ['/admin'];
+const DEFAULT_PHONE = '+51 953858267';
+const DEFAULT_MESSAGE = 'Hi! I have a question about this page.';
 
+// Supported locales
+const SUPPORTED_LOCALES = ['es', 'en', 'fr', 'pt', 'ru'];
+const DEFAULT_LOCALE = 'es';
+
+/* ------------------------------------------------------
+ * 🧮 Utility helpers
+ * ------------------------------------------------------ */
 const digits = (s) => String(s || '').replace(/[^\d]/g, '');
 
-function buildHref({ phone, baseMessage }) {
+function buildWhatsAppLink({ phone, message }) {
   const num = digits(phone);
   if (!num) return null;
 
   const title = typeof document !== 'undefined' ? document.title : '';
   const url = typeof window !== 'undefined' ? window.location.href : '';
+
   const parts = [
-    baseMessage || 'Hi! I have a question about this page.',
-    title ? `\n\nPage: ${title}` : '',
-    url ? `\n${url}` : '',
+    message || DEFAULT_MESSAGE,
+    title ? `\n\n📄 Page: ${title}` : '',
+    url ? `\n🔗 ${url}` : '',
   ];
+
   const text = encodeURIComponent(parts.join(''));
   return `https://wa.me/${num}?text=${text}`;
 }
 
+/* ------------------------------------------------------
+ * 💬 WhatsApp Floating Button (manual locale translation)
+ * ------------------------------------------------------ */
 export default function WhatsAppFloat({
-  message = WHATSAPP_DEFAULT_MESSAGE,
+  phone = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ||
+          process.env.NEXT_PUBLIC_PHONE ||
+          DEFAULT_PHONE,
+  message,
 }) {
-  const pathname = usePathname();
+  const pathname = usePathname() || '/';
+
+  // Detect locale from URL path
+  const segment = pathname.split('/')[1] || '';
+  const locale = SUPPORTED_LOCALES.includes(segment)
+    ? segment
+    : DEFAULT_LOCALE;
+
+  const [t, setT] = useState({
+    tooltip: 'Chat on WhatsApp',
+    defaultMessage: DEFAULT_MESSAGE,
+  });
+
+  // Load WhatsApp translations manually
+  useEffect(() => {
+    import(`@/messages/${locale}.json`)
+      .then((m) => setT(m.WhatsApp || t))
+      .catch(() => setT({
+        tooltip: 'Chat on WhatsApp',
+        defaultMessage: DEFAULT_MESSAGE,
+      }));
+  }, [locale]);
+
   const hide = HIDE_ON_PREFIXES.some((p) => pathname.startsWith(p));
   if (hide) return null;
 
-  const phone =
-    CONTACT_PHONE ||
-    process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ||
-    process.env.NEXT_PUBLIC_PHONE ||
-    '+51 982397386';
+  const localizedMessage = message || t.defaultMessage;
 
   const href = useMemo(
-    () => buildHref({ phone, baseMessage: message }),
-    [phone, message]
+    () => buildWhatsAppLink({ phone, message: localizedMessage }),
+    [phone, localizedMessage]
   );
 
   if (!href) return null;
@@ -49,15 +86,21 @@ export default function WhatsAppFloat({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      aria-label="Chat on WhatsApp"
-      className="fixed z-50 bottom-6 right-6 group print:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#25D366] focus-visible:ring-offset-2"
+      aria-label={t.tooltip}
+      className="fixed z-50 bottom-6 right-6 group print:hidden 
+                 focus-visible:outline-none focus-visible:ring-2 
+                 focus-visible:ring-[#25D366] focus-visible:ring-offset-2"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      {/* Main round bubble */}
+      {/* Bubble */}
       <div
-        className="relative flex items-center justify-center w-14 h-14 rounded-full shadow-xl bg-[#25D366] text-white transition-all duration-300 group-hover:scale-110 group-active:scale-95 group-hover:shadow-[0_0_20px_#25D366cc]"
+        className="relative flex items-center justify-center w-14 h-14 rounded-full 
+                   bg-[#25D366] text-white shadow-xl 
+                   transition-transform duration-300 
+                   hover:scale-110 active:scale-95 
+                   hover:shadow-[0_0_20px_#25D366cc]"
       >
-        {/* WhatsApp logo */}
+        {/* WhatsApp Icon */}
         <svg viewBox="0 0 32 32" aria-hidden="true" className="w-7 h-7">
           <path
             fill="currentColor"
@@ -65,13 +108,18 @@ export default function WhatsAppFloat({
           />
         </svg>
 
-        {/* Ping effect */}
-        <span className="absolute inline-flex h-full w-full rounded-full bg-[#25D366] opacity-15 animate-ping"></span>
+        {/* Ping animation */}
+        <span className="absolute inline-flex h-full w-full rounded-full bg-[#25D366] opacity-20 animate-ping"></span>
       </div>
 
-      {/* Tooltip (desktop only) */}
-      <div className="absolute -left-28 bottom-3 px-3 py-1 rounded-lg shadow-md bg-black/75 text-white text-xs hidden sm:inline-block group-hover:opacity-100 opacity-0 transition-opacity duration-200">
-        Chat on WhatsApp
+      {/* Tooltip */}
+      <div
+        className="absolute -left-32 bottom-3 px-3 py-1.5 rounded-lg shadow-md 
+                   bg-black/75 text-white text-xs hidden sm:block 
+                   opacity-0 group-hover:opacity-100 
+                   transition-opacity duration-200"
+      >
+        {t.tooltip}
       </div>
     </a>
   );

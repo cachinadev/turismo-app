@@ -8,31 +8,47 @@ function normalizeBase(url) {
 export const API_BASE = normalizeBase(
   process.env.NEXT_PUBLIC_API_URL ||
   process.env.NEXT_PUBLIC_API_BASE ||
-  "http://localhost:4000" // sensible dev fallback
+  "http://localhost:4000" // dev fallback
 );
 
+// In production force uploads to api.vicuadvent.com
+const UPLOADS_BASE =
+  process.env.NODE_ENV === "production"
+    ? "https://api.vicuadvent.com"
+    : API_BASE;
+
+/**
+ * Resolve media URLs consistently across environments
+ * - Keeps absolute external URLs untouched
+ * - Rewrites localhost/127.* to API_BASE
+ * - Forces /uploads/* to UPLOADS_BASE
+ */
 export function mediaUrl(u = "") {
   if (!u) return "";
 
-  // Absolute external URL (data/blob/http/https)
+  // Absolute data/blob URLs
   if (/^(data:|blob:)/i.test(u)) return u;
 
+  // Absolute http(s) URLs
   if (/^https?:\/\//i.test(u)) {
     try {
       const parsed = new URL(u);
-      // If it's pointing to localhost or 127.*, rewrite to API_BASE
+
+      // Rewrite localhost → API_BASE
       if (["localhost", "127.0.0.1"].includes(parsed.hostname)) {
         return `${API_BASE}${parsed.pathname}`;
       }
-      return u; // leave as-is for valid remote URLs
+
+      // If it's already on api.vicuadvent.com or another host → leave as-is
+      return u;
     } catch {
       return u;
     }
   }
 
-  // If it's a relative /uploads/... path → prepend API_BASE
+  // Relative uploads path
   if (u.startsWith("/uploads")) {
-    return `${API_BASE}${u}`;
+    return `${UPLOADS_BASE}${u}`;
   }
 
   // Generic relative fallback
