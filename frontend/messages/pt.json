@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {
   "Home": {
     "welcome": "Bem-vindo à {brand}",
@@ -562,3 +563,212 @@
 
 
 }
+=======
+{
+  "Home": {
+    "welcome": "Bem-vindo à {brand}",
+    "headline1": "Descubra",
+    "headline2": "O Peru Autêntico",
+    "subheading": "Viva o Peru como nunca antes. De ruínas antigas a culturas vibrantes, sua jornada começa aqui.",
+
+    "ctaExplore": "Explorar Aventuras",
+    "ctaExploreAll": "Explorar todas as aventuras",
+    "ctaOffers": "Ofertas Especiais",
+    "ctaContact": "Entre em Contato",
+    "ctaLearnMore": "Saiba mais",
+
+    "scrollDown": "Role para baixo",
+
+    "whyTitle": "Por que viajar com {brand}?",
+    "whyDesc": "Estamos comprometidos em tornar sua experiência no Peru segura, memorável e verdadeiramente autêntica.",
+    "trust1.title": "Suporte Local 24/7",
+    "trust1.desc": "Nossa equipe está disponível o tempo todo durante sua aventura no Peru.",
+    "trust2.title": "Guias Locais Especializados",
+    "trust2.desc": "Guias certificados com profundo conhecimento cultural e regional.",
+    "trust3.title": "Planejamento Flexível",
+    "trust3.desc": "Modifique facilmente reservas e datas conforme seus planos.",
+
+    "destinations.title": "Explore as joias do Peru",
+    "destinations.desc": "Descubra os destinos mais procurados do nosso belo país.",
+    "destinations.package": "{n} pacote",
+    "destinations.packages": "{n} pacotes",
+
+    "offers.title": "Ofertas exclusivas de aventura",
+    "offers.desc": "Não perca estas experiências selecionadas com preços imbatíveis.",
+    "offers.limited": "🎊 TEMPO LIMITADO",
+    "offers.button": "Ver todas as ofertas especiais →",
+    "offers.none": "Nenhuma oferta disponível no momento.",
+
+    "empty.title": "Em breve",
+    "empty.desc": "Estamos preparando experiências extraordinárias para você. Fique atento!",
+    "empty.cta1": "📧 Entre em contato",
+    "empty.cta2": "ℹ️ Saiba mais",
+
+    "searchPlaceholder": "Buscar passeios (Uros, Taquile, Machu Picchu…)",
+    "searchButton": "Buscar",
+    "searchTryPrefix": "Tente:",
+    "searchTryExamples": "Ilhas Uros, Taquile, Machu Picchu"
+  },
+
+  "NavBar": {
+    "home": "Início",
+    "packages": "Pacotes",
+    "destinations": "Destinos",
+    "about": "Sobre",
+    "testimonials": "Depoimentos",
+    "contact": "Contato",
+    "bookNow": "Reservar agora",
+    "language": "Idioma"
+  },
+
+  "Packages": {
+    "title": "Pacotes de Aventura",
+    "subtitle": "Escolha entre nossos passeios selecionados por todo o Peru.",
+    "priceFrom": "A partir de",
+    "duration": "Duração",
+    "bookNow": "Reservar",
+    "availableIn": "Disponível em",
+    "promo": "Oferta especial",
+    "noPackages": "Nenhum pacote disponível no momento.",
+    "viewAll": "Ver todos os pacotes",
+    "exploreAll": "Explorar todas as aventuras",
+
+    "searchPlaceholder": "Pesquisar por título ou descrição…",
+    "searchButton": "Pesquisar",
+    "searchTryPrefix": "Tente:",
+    "searchTryExamples": "Ilhas Uros, Taquile, Machu Picchu",
+
+    "allCities": "Todas as cidades",
+    "allCategories": "Todas as categorias",
+    "apply": "Aplicar",
+    "clear": "Limpar",
+    "listView": "Lista",
+    "mapView": "Mapa",
+    "results": "resultados",
+    "loading": "Carregando…",
+    "loadingMap": "Carregando mapa…",
+    "minPrice": "Mín R$",
+    "maxPrice": "Máx R$",
+    "maxHours": "≤ horas",
+    "relevance": "Relevância",
+    "priceAsc": "Preço ↑",
+    "priceDesc": "Preço ↓",
+    "mostRecent": "Mais recentes",
+    "inThisArea": "Nesta área",
+    "showAll": "Mostrar tudo",
+    "searchThisArea": "Buscar nesta área",
+    "noMatches.title": "Nenhum pacote corresponde",
+    "noMatches.hint1": "Tente remover alguns filtros.",
+    "noMatches.hint2": "Aumente o preço máximo ou a duração.",
+    "noMatches.hint3": "Pesquise com uma palavra-chave mais ampla.",
+    "pageXofY": "Página {x} de {y}",
+    "perPage": "{n}/página",
+    "previous": "← Anterior",
+    "next": "Próxima →",
+    "languages": "Idiomas"
+  },
+
+  "PackageDetail": {
+    "highlights": "Destaques",
+    "includes": "Inclui",
+    "notIncludes": "Não inclui",
+    "bookNow": "Reservar agora",
+    "price": "Preço",
+    "duration": "Duração",
+    "hours": "horas",
+    "location": "Localização",
+    "openInMaps": "Abrir no Maps ↗",
+    "languages": "Idiomas disponíveis",
+    "description": "Descrição",
+    "related": "Experiências relacionadas",
+    "share": "Compartilhar",
+
+    "dealTitle": "Oferta limitada: economize {pct}%",
+    "dealDetail": "Agora {now} (antes {was}). Saídas diárias, {langs}.",
+    "contextShort": "Perfeito para uma visita de {hours} h em {city}",
+    "contextDetail": "Disponível em {langs}. Grupos pequenos • Guias locais certificados • Reserva fácil.",
+    "popular": "Experiência popular com ótimas avaliações",
+    "popularDetail": "Disponível em {langs}. Alterações flexíveis e suporte 24/7.",
+
+    "whyBook": "Por que reservar conosco?",
+    "trust1": "Operadores locais certificados",
+    "trust2": "Suporte multilíngue 24/7",
+    "trust3": "Alterações de data flexíveis",
+    "trust4": "Pagamentos seguros",
+
+    "questions": "Dúvidas?",
+    "helpText": "Fale conosco por WhatsApp ou e-mail e ajudaremos a planejar sua viagem.",
+    "chat": "Falar no WhatsApp",
+    "email": "E-mail",
+    "readyToBook": "Pronto para reservar esta experiência?",
+    "fastConfirmation": "Confirmação rápida e suporte 24/7.",
+
+    "people": "pess.",
+    "total": "Total"
+  },
+
+  "Footer": {
+    "about": "Oferecemos experiências culturais e de aventura autênticas em Puno, Cusco, Arequipa e além.",
+    "followUs": "Siga-nos em",
+    "explore": "Explorar",
+    "support": "Suporte",
+    "faqs": "Perguntas Frequentes",
+    "privacy": "Política de Privacidade",
+    "terms": "Termos e Condições",
+    "complaints": "Livro de Reclamações",
+    "contact": "Fale Conosco",
+    "business": "Razão Social",
+    "ruc": "RUC",
+    "rights": "Todos os direitos reservados.",
+    "cookies": "Política de Cookies",
+    "sitemap": "Mapa do Site"
+  },
+
+  "WhatsApp": {
+    "tooltip": "Conversar no WhatsApp",
+    "defaultMessage": "Olá! Tenho uma dúvida sobre esta página."
+  },
+
+  "BookingForm": {
+    "date": "Data do passeio",
+    "name": "Nome completo",
+    "email": "E-mail",
+    "phone": "Telefone",
+    "phonePlaceholder": "+55 11 91234-5678",
+    "country": "País",
+    "countryPlaceholder": "Seu país",
+    "adults": "Adultos",
+    "children": "Crianças",
+    "notes": "Observações",
+    "notesPlaceholder": "Detalhes adicionais, preferências ou perguntas",
+    "people": "Pessoas",
+    "estimated": "Total estimado",
+    "confirm": "Confirmar reserva",
+    "sending": "Enviando…",
+    "success.sent": "Reserva enviada! Verifique seu e-mail para confirmação.",
+    "antiSpam": "Se você é humano, deixe este campo em branco.",
+    "consent": "Ao enviar, você concorda em ser contatado por e-mail ou WhatsApp para confirmar a disponibilidade.",
+    "error.noPackage": "Pacote não encontrado. Atualize a página.",
+    "error.noDate": "Selecione uma data para o passeio.",
+    "error.pastDate": "A data selecionada não pode ser anterior a hoje.",
+    "error.noName": "O nome completo é obrigatório.",
+    "error.noEmail": "O e-mail é obrigatório.",
+    "error.invalidEmail": "Digite um endereço de e-mail válido.",
+    "error.noAdults": "Deve haver pelo menos 1 adulto.",
+    "error.submitFailed": "Não foi possível criar a reserva.",
+    "error.unknown": "A reserva não pôde ser concluída."
+  },
+
+  "__hero": {
+    "sub": "por aventuras inesquecíveis"
+  },
+
+  "__local": {
+    "savePct": "Economize",
+    "special": "Oferta especial",
+    "availableIn": "Disponível em",
+    "package1": "pacote",
+    "packagesN": "pacotes"
+  }
+}
+>>>>>>> 72d948c6d1c7d86949e7e46b13be97d4a318e6d9
