@@ -101,7 +101,7 @@ export default function EditPackagePage() {
         if (res.status === 401) msg = 'Session expired. Please sign in again.';
         throw new Error(msg);
       }
-      router.replace('/admin/packages');
+      router.replace('/admin/dashboard');
       router.refresh();
     } catch (e) {
       setErr(e?.message || 'An unexpected error occurred while deleting.');
@@ -113,11 +113,12 @@ export default function EditPackagePage() {
   return (
     <AdminGuard>
       <main>
-        {/* No NavBar here—admin layout should already provide the correct chrome */}
-        <section className="container-default py-8" aria-busy={loading ? 'true' : 'false'}>
+        <section className="container-default py-20" aria-busy={loading ? 'true' : 'false'}>
           {/* Breadcrumb + actions */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
             <div className="flex items-center gap-2 text-sm text-slate-600">
+              <Link href="/admin/dashboard" className="hover:underline">Dashboard</Link>
+              <span>›</span>
               <Link href="/admin/packages" className="hover:underline">Packages</Link>
               <span>›</span>
               <span className="text-slate-800">{pkg?.title || 'Edit'}</span>
@@ -134,7 +135,8 @@ export default function EditPackagePage() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <Link href="/admin/packages" className="btn btn-ghost">← Back</Link>
+              <Link href="/admin/dashboard" className="btn btn-ghost">← Back to Dashboard</Link>
+              <Link href="/admin/packages" className="btn btn-ghost">← Back to Packages</Link>
               <button className="btn" onClick={runFetch} disabled={loading}>
                 {loading ? 'Loading…' : 'Refresh'}
               </button>
@@ -225,8 +227,8 @@ export default function EditPackagePage() {
             <PackageForm
               pkg={pkg}
               onSaved={(doc) => {
-                if (doc?._deleted) router.replace('/admin/packages');
-                else router.replace('/admin/packages');
+                if (doc?._deleted) router.replace('/admin/dashboard');
+                else router.replace('/admin/dashboard');
               }}
             />
           )}

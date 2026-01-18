@@ -1,0 +1,562 @@
+{
+  "Home": {
+    "welcome": "Bienvenido a {brand}",
+    "headline1": "Descubre",
+    "headline2": "El Perú Auténtico",
+    "subheading": "Vive el Perú como nunca antes. Desde antiguas ruinas hasta culturas vibrantes, tu viaje comienza aquí.",
+
+    "ctaExplore": "Explorar Aventuras",
+    "ctaExploreAll": "Explorar todas las aventuras",
+    "ctaOffers": "Ofertas Especiales",
+    "ctaContact": "Contáctanos",
+    "ctaLearnMore": "Saber más",
+
+    "scrollDown": "Desplázate hacia abajo",
+
+    "whyTitle": "¿Por qué viajar con {brand}?",
+    "whyDesc": "Nos comprometemos a que tu experiencia en Perú sea segura, memorable y auténtica.",
+    
+    "trust1.title": "¡Nuevos Destinos Disponibles!",
+    "trust1.desc": "Descubre Machu Picchu y otros destinos increíbles",
+    "trust2.title": "Reservas del Mes",
+    "trust2.desc": "Únete a miles de aventureros explorando Perú",
+    "trust3.title": "¡Gracias por tu interés!",
+    "trust3.desc": "Descarga nuestro App gratis aquí 👇",
+    "trust4.title": "¡Asistencia 24/7!",
+    "trust4.desc": "El equipo de Vicuña Adventures estará a su disposición durante toda su aventura peruana.",
+    "trust5.title": "¡Guías locales expertos!",
+    "trust5.desc": "Explora con guías certificados que comparten un profundo conocimiento cultural y experiencia regional.",
+    "trust6.title": "¡Planificación flexible!",
+    "trust6.desc": "Modificaciones y cambios de fecha fáciles de realizar para adaptarse a sus planes de viaje.",
+    "trust7.title": "¡Promociones!",
+    "trust.today": "Hoy",
+
+    "promo.christmas": "Navidad",
+    "promo.halloween": "Halloween",
+    "promo.blackfriday": "Black Friday",
+    "promo.summer": "Verano",
+
+    "destinations.title": "Explora las joyas del Perú",
+    "destinations.desc": "Descubre los destinos más buscados de nuestro hermoso país.",
+    "destinations.package": "{n} paquete",
+    "destinations.packages": "{n} paquetes",
+
+    "mapbadge": "Explora el Mapa",
+    "maptitle0": "Explora,",
+
+    "offers.title": "Ofertas Exclusivas de Aventura",
+    "offers.desc": "No te pierdas estas experiencias seleccionadas a precios inmejorables.",
+    "offers.limited": "TIEMPO LIMITADO",
+
+    "emptytitle": "Bienvenido a Vicuña Adventures",
+    "emptydesc": "Estamos preparando experiencias extraordinarias para ti. ¡Vuelve pronto!",
+    "emptycta1": " Contáctanos",
+    "emptycta2": "ℹ Más información",
+
+    "searchPlaceholder": "Busca tours (Uros, Taquile, Machu Picchu…)",
+    "searchButton": "Buscar",
+    "searchTryPrefix": "Prueba:",
+    "searchTryExamples": "Islas Uros, Taquile, Machu Picchu",
+    "experienceEvery": "Cada Experiencia",
+    "destitle": "Tiene Una Riqueza Escondida",
+    "desdesc": "Explora las tres regiones únicas del Perú: Sierra, Costa y Selva. Cada una con su propia magia, historia y aventura.",
+    "explorePeru": "Explora Perú de",
+    "maptitle": "Forma Interactiva",
+    "mapdesc": "Haz clic en las regiones para explorar destinos y experiencias únicas",
+    "takeAdvantage": "Aprovecha Nuestras",
+    "specialPromotions": "Promociones Especiales",
+    "promoDescription": "Tours con descuentos exclusivos disponibles por tiempo limitado",
+    "viewAllPackages": "Ver Todos los Paquetes"
+  },
+
+  "HeroLanding": {
+    "sierra": {
+      "name": "SIERRA",
+      "subtitle": "Andes & Montañas",
+      "title": "Sierra Andina - Urus",
+      "subtitle2": "El pueblo que flota entre el cielo y el agua",
+      "question": "¿Cuál es el exponente más sorprendente del pasado vivo en los Andes?",
+      "description": "En el Lago Titicaca, los Urus construyeron islas flotantes de totora y mantienen vivas tradiciones ancestrales. Sus tejidos y artesanías hechas a mano, llenas de color y simbolismo, cuentan historias del lago, del cielo y de un pueblo que ha sabido convivir con la naturaleza durante siglos.",
+      "highlights": {
+        "urus": {
+          "name": "Urus",
+          "description": "En las islas flotantes de los Urus, en Puno, descubrirás una cultura ancestral que vive sobre el agua, con tradiciones únicas que siguen sorprendiendo al mundo."
+        },
+        "crafts": {
+          "name": "Manualidades",
+          "description": "Capital del Imperio Inca, fusiona arquitectura colonial española con muros incaicos en perfecta armonía."
+        },
+        "textiles": {
+          "name": "Tejidos Artesanales",
+          "description": "Tierras fértiles que alimentaron al Imperio Inca, rodeadas de pueblos tradicionales y paisajes espectaculares."
+        }
+      },
+      "destinations": {
+        "qalasaya": {
+          "badge": "Andina",
+          "title": "Qalasaya",
+          "subtitle": "Este recinto sagrado estuvo estrechamente vinculado a la observación astronómica y al culto al Sol, siendo un espacio clave para ceremonias religiosas y sociales. Sus estructuras de piedra tallada reflejan un profundo conocimiento arquitectónico y una relación espiritual con la naturaleza y los ciclos del tiempo."
+        },
+        "pukara": {
+          "badge": "Andina",
+          "title": "Pukara",
+          "subtitle": "Pukara es uno de los centros culturales más antiguos del altiplano peruano. Famoso por su cerámica y esculturas de piedra, este lugar sagrado revela el origen de símbolos andinos que aún perduran. Caminar por Pukara es viajar a los inicios de la civilización andina."
+        },
+        "temple": {
+          "badge": "Andina",
+          "title": "Templo blanco y rojo",
+          "subtitle": "Este templo destaca por su singular combinación de colores y simbolismo. Rodeado de paisajes andinos, representa la fusión entre la espiritualidad ancestral y la influencia colonial. Un lugar que invita a la contemplación y al encuentro con la historia viva de la región."
+        }
+      },
+      "cta": "Explorar Sierra",
+      "destinationsTitle": "Destinos en Sierra"
+    },
+    "costa": {
+      "name": "COSTA",
+      "subtitle": "Playas & Desierto",
+      "title": "Costa Peruana",
+      "subtitle2": "Donde el desierto se encuentra con el mar",
+      "question": "¿Qué te espera en la costa peruana?",
+      "description": "Desde playas paradisíacas hasta oasis en el desierto, la costa peruana te sorprenderá con su diversidad de paisajes y su rica historia.",
+      "highlights": {
+        "nazca": {
+          "name": "Líneas de Nazca",
+          "description": "Enigmáticas figuras geométricas y zoomorfas visibles solo desde el aire, misterio arqueológico mundial."
+        },
+        "beaches": {
+          "name": "Playas del Norte",
+          "description": "Aguas cálidas, olas perfectas para el surf y playas vírgenes en la costa norte peruana."
+        },
+        "gastronomy": {
+          "name": "Gastronomía Limeña",
+          "description": "Capital gastronómica de América, fusiona tradiciones indígenas, españolas, africanas y asiáticas."
+        }
+      },
+      "destinations": {
+        "lima": {
+          "badge": "Costera",
+          "title": "Lima Gastronómica",
+          "subtitle": "Capital mundial de la gastronomía"
+        },
+        "nazca": {
+          "badge": "Costera",
+          "title": "Líneas de Nazca",
+          "subtitle": "Misterios antiguos en el desierto"
+        },
+        "paracas": {
+          "badge": "Costera",
+          "title": "Paracas y las Islas Ballestas",
+          "subtitle": "Mirando hacia delante"
+        }
+      },
+      "cta": "Explorar Costa",
+      "destinationsTitle": "Destinos en Costa"
+    },
+    "selva": {
+      "name": "SELVA",
+      "subtitle": "Amazonía & Biodiversidad",
+      "title": "Selva Amazónica",
+      "subtitle2": "El pulmón verde del planeta",
+      "question": "¿Listo para adentrarte en la Amazonía peruana?",
+      "description": "La selva peruana alberga una de las biodiversidades más ricas del planeta. Una aventura que cambiará tu perspectiva del mundo.",
+      "highlights": {
+        "tambopata": {
+          "name": "Reserva Tambopata",
+          "description": "Paraíso de biodiversidad con colpas de guacamayos, lagos escondidos y selva primaria intacta."
+        },
+        "amazon": {
+          "name": "Río Amazonas",
+          "description": "El río más caudaloso del mundo, arteria vital de la selva y hogar de comunidades ribereñas."
+        },
+        "manu": {
+          "name": "Parque Nacional Manu",
+          "description": "Reserva de la Biosfera con una de las mayores diversidades biológicas del planeta."
+        }
+      },
+      "destinations": {
+        "tambopata": {
+          "badge": "Amazónica",
+          "title": "Reserva Nacional Tambopata",
+          "subtitle": "La biodiversidad amazónica te espera"
+        },
+        "iquitos": {
+          "badge": "Amazónica",
+          "title": "Iquitos y el Río Amazonas",
+          "subtitle": "La puerta de entrada a la selva"
+        },
+        "manu": {
+          "badge": "Amazónica",
+          "title": "Manu - Parque Nacional",
+          "subtitle": "Donde se deja ver el señor de los cielos"
+        }
+      },
+      "cta": "Explorar Selva",
+      "destinationsTitle": "Destinos en Selva"
+    },
+    "finalCta": {
+      "title": "¿Listo para tu aventura peruana?",
+      "description": "Descubre todos nuestros paquetes personalizados para cada región del Perú. Nuestro equipo de guías certificados te espera para crear la experiencia perfecta.",
+      "btnPackages": "Explorar Paquetes",
+      "btnContact": "Contactar Asesor"
+    },
+    "destinationsSection": {
+      "icon": "📍",
+      "subtitle": "Experiencias cuidadosamente diseñadas para mostrar lo mejor de cada región"
+    },
+    "card": {
+      "viewDetails": "Ver detalles"
+    }
+  },
+
+  "NavBar": {
+    "home": "Inicio",
+    "packages": "Paquetes",
+    "destinations": "Destinos",
+    "about": "Nosotros",
+    "testimonials": "Testimonios",
+    "contact": "Contacto",
+    "bookNow": "Reservar ahora",
+    "language": "Idioma"
+  },
+
+  "PackageDetail": {
+    "highlights": "Lo más destacado",
+    "includes": "Incluye",
+    "notIncludes": "No incluye",
+    "bookNow": "Reservar ahora",
+    "price": "Precio",
+    "duration": "Duración",
+    "hours": "horas",
+    "location": "Ubicación",
+    "openInMaps": "Abrir en Maps ↗",
+    "languages": "Idiomas disponibles",
+    "description": "Descripción",
+    "related": "Experiencias relacionadas",
+    "share": "Compartir",
+
+    "dealTitle": "Oferta por tiempo limitado: ahorra {pct}%",
+    "dealDetail": "Ahora {now} (antes {was}). Salidas diarias, {langs}.",
+    "contextShort": "Ideal para una visita de {hours}h en {city}",
+    "contextDetail": "Disponible en {langs}. Grupos pequeños • Guías locales certificados • Reserva fácil.",
+    "popular": "Experiencia popular con excelentes opiniones",
+    "popularDetail": "Disponible en {langs}. Cambios flexibles y soporte 24/7.",
+
+    "whyBook": "¿Por qué reservar con nosotros?",
+    "trust1": "Operadores locales certificados",
+    "trust2": "Soporte multilingüe 24/7",
+    "trust3": "Cambios de fecha flexibles",
+    "trust4": "Pagos seguros",
+
+    "questions": "¿Tienes preguntas?",
+    "helpText": "Escríbenos por WhatsApp o correo y te ayudamos a planificar tu viaje.",
+    "chat": "Chatear por WhatsApp",
+    "email": "Correo",
+    "readyToBook": "¿Listo para reservar esta experiencia?",
+    "fastConfirmation": "Confirmación rápida y soporte 24/7.",
+
+    "people": "personas",
+    "total": "Total"
+  },
+
+  "Footer": {
+    "about": "Ofrecemos experiencias culturales y de aventura auténticas en Puno, Cusco, Arequipa y más allá.",
+    "followUs": "Síguenos en",
+    "explore": "Explora",
+    "packages": "Paquetes",
+    "support": "Soporte",
+    "faqs": "Preguntas Frecuentes",
+    "privacy": "Política de Privacidad",
+    "terms": "Términos y Condiciones",
+    "complaints": "Libro de Reclamaciones",
+    "cookies": "Política de Cookies",
+    "sitemap": "Mapa del sitio",
+    "contact": "Contáctanos",
+    "address": "Av. Juan de Arona 755, Piso 11 - San Isidro, Lima, Perú",
+    "business": "Razón Social",
+    "businessValue": "Vicuña Adventures SAC",
+    "ruc": "RUC",
+    "rucValue": "20536830376",
+    "phone": "Teléfono",
+    "phoneValue": "+51 1 6196900",
+    "email": "Correo electrónico",
+    "emailValue": "sales@vicuadvent.com",
+    "rights": "Todos los derechos reservados"
+  },
+
+  "WhatsApp": {
+    "tooltip": "Chatear por WhatsApp",
+    "defaultMessage": "¡Hola! Tengo una consulta sobre esta página."
+  },
+
+  "BookingForm": {
+    "date": "Fecha del tour",
+    "name": "Nombre completo",
+    "email": "Correo electrónico",
+    "phone": "Teléfono",
+    "phonePlaceholder": "+51 999 123 456",
+    "country": "País",
+    "countryPlaceholder": "Tu país",
+    "adults": "Adultos",
+    "children": "Niños",
+    "notes": "Notas",
+    "notesPlaceholder": "Detalles adicionales, preferencias o preguntas",
+    "people": "Personas",
+    "estimated": "Total estimado",
+    "confirm": "Confirmar reserva",
+    "sending": "Enviando...",
+    "success.sent": "¡Reserva enviada! Por favor revisa tu correo para la confirmación.",
+    "antiSpam": "Si eres humano, deja este campo vacío.",
+    "consent": "Al enviar, aceptas ser contactado por correo o WhatsApp para confirmar disponibilidad.",
+    "error.noPackage": "Paquete no encontrado. Actualiza la página.",
+    "error.noDate": "Selecciona una fecha para el tour.",
+    "error.pastDate": "La fecha seleccionada no puede ser anterior a hoy.",
+    "error.noName": "El nombre completo es obligatorio.",
+    "error.noEmail": "El correo electrónico es obligatorio.",
+    "error.invalidEmail": "Introduce un correo electrónico válido.",
+    "error.noAdults": "Debe haber al menos un adulto.",
+    "error.submitFailed": "No se pudo crear la reserva.",
+    "error.unknown": "No se pudo completar la reserva."
+  },
+
+ "InteractiveMap": {
+  "hours": "horas",
+  "whatsappMessage": "Hola, estoy interesado en el paquete: {title}",
+  "location": "Ubicación",
+  "duration": "Duración",
+  "priceFrom": "Precio desde",
+  "category": "Categoría",
+  "tour": "Tour",
+  "viewDetails": "Ver detalles",
+  "whatsapp": "WhatsApp",
+  "filterByCity": "Filtrar por ciudad:",
+  "allCities": "Todas las ciudades",
+  "priceRange": "Rango",
+  "totalPackages": "Total de paquetes",
+  "citiesAvailable": "Ciudades disponibles",
+  "avgPrice": "Precio promedio (USD)",
+  "mapLegend": "Leyenda del mapa",
+  "tourPackages": "Paquetes turísticos",
+  "clickMarkers": "Haz clic en los marcadores para ver detalles",
+  "packages": "Paquetes",
+  "noPackages": "No hay paquetes disponibles",
+  "clearFilters": "Limpiar filtros",
+  "packagesAvailable": "Paquetes Disponibles",
+  "total": "total",
+  "loading": "Cargando paquetes..."
+},
+
+"TourGuide": {
+  "welcome": "¡Hola, Soy Tu Guía!",
+  "description": "Experto local certificado listo para mostrarte",
+  "tagline": "¡Lo mejor del Perú auténtico!",
+  "services": {
+    "guided": "Tours Guiados",
+    "adventures": "Aventuras",
+    "gastronomy": "Gastronomía",
+    "lodging": "Hospedaje"
+  },
+  "stats": {
+    "tours": "Tours",
+    "travelers": "Viajeros",
+    "rating": "Rating"
+  },
+  "badges": {
+    "certified": "Certificado",
+    "safe": "Seguro",
+    "topRated": "Top Rated"
+  }
+},
+
+  "Packages": {
+    "title": "VICUÑA ADVENTURES",
+    "results": "paquetes disponibles",
+    "listView": "Listado",
+    "mapView": "Mapa",
+    "filters": "Filtros",
+    "searchLabel": "Buscar por título o descripción",
+    "searchPlaceholder": "Escribe aquí...",
+    "city": "Ciudad",
+    "allCities": "Todas las ciudades",
+    "otherCities": "Otras ciudades",
+    "category": "Categoría",
+    "allCategories": "Todas las categorías",
+    "sortBy": "Ordenar por",
+    "sort.relevance": "Relevancia",
+    "sort.priceAsc": "Precio: Menor a Mayor",
+    "sort.priceDesc": "Precio: Mayor a Menor",
+    "sort.recent": "Más recientes",
+    "priceRange": "Rango de precio",
+    "minPrice": "S/. 0",
+    "maxPrice": "S/. 10,000",
+    "maxDuration": "Duración máxima",
+    "maxDurationPlaceholder": "≤ horas",
+    "resultsPerPage": "Resultados por página",
+    "clear": "Limpiar",
+    "apply": "Aplicar",
+    "retry": "Reintentar",
+    "loadingMap": "Cargando mapa...",
+    "showAll": "Mostrar todos",
+    "searchArea": "Buscar en esta área",
+    "close": "Cerrar",
+    "viewDetails": "Ver detalles",
+    "noPackages": "No se encontraron paquetes",
+    "removeFilters": "Intenta ajustar los filtros para ver más resultados",
+    "prev": "Anterior",
+    "next": "Siguiente",
+    "page": "Página",
+    "of": "de",
+    "peru": "Perú",
+    "adventure": "Aventura",
+    "youSave": "Ahorras",
+    "perPerson": "Precio por persona",
+    "includesTaxes": "Incluye impuestos"
+  },
+  "About": {
+    "nav": {
+      "home": "Inicio",
+      "packages": "Paquetes",
+      "destinations": "Destinos",
+      "about": "Nosotros",
+      "testimonials": "Testimonios",
+      "contact": "Contacto",
+      "language": "Español",
+      "book": "Reservar"
+    },
+    "hero": {
+      "weAre": "Somos",
+      "description": "Más que una operadora turística. Somos tu conexión local con el alma del Perú, uniendo experiencias auténticas con turismo sostenible y respetuoso.",
+      "startAdventure": "Inicia tu Aventura",
+      "watchStory": "Mira Nuestra Historia"
+    },
+    "stats": {
+      "guides": "Guías Expertos",
+      "guidesDesc": "Certificados y Locales",
+      "drivers": "Choferes Seguros",
+      "driversDesc": "Conocen Cada Ruta",
+      "team": "Miembros del Equipo",
+      "teamDesc": "Multilingües",
+      "cuisine": "Cocina Local",
+      "cuisineDesc": "Sabores Auténticos"
+    },
+    "mission": {
+      "title": "NUESTRA MISIÓN",
+      "headline1": "Compartir la",
+      "headline2": "Riqueza Andina",
+      "description": "Compartir con el mundo la riqueza cultural y natural de los Andes, ofreciendo experiencias de viaje auténticas que conecten a cada visitante con la Pachamama, las tradiciones aymaras y quechuas, y la calidez de nuestra gente. Promovemos un turismo responsable y sostenible que honre nuestras raíces y fortalezca a nuestras comunidades.",
+      "items": {
+        "sustainable": "Turismo 100% Sostenible",
+        "reciprocity": "Reciprocidad (Ayni) con Comunidades",
+        "safety": "Operaciones Seguras"
+      }
+    },
+    "vision": {
+      "title": "NUESTRA VISIÓN",
+      "headline1": "Ser referencia en",
+      "headline2": "Turismo Andino",
+      "description": "Ser una agencia referente en turismo vivencial y de aventura en el altiplano andino, reconocida por rescatar y difundir el legado cultural aymara y quechua, promoviendo un equilibrio entre el viajero, la naturaleza y nuestras costumbres ancestrales.",
+      "card1": {
+        "title": "Equilibrio Perfecto",
+        "description": "Promovemos un equilibrio entre el viajero, la naturaleza y nuestras costumbres ancestrales, creando experiencias que respetan la Pachamama y enriquecen al visitante.",
+        "items": {
+          "ancestralRespect": "Respeto Ancestral",
+          "naturalHarmony": "Armonía Natural",
+          "culturalConnection": "Conexión Cultural",
+          "sustainableDevelopment": "Desarrollo Sostenible"
+        }
+      },
+      "card2": {
+        "title": "Legado Cultural",
+        "description": "Reconocidos por rescatar y difundir el legado cultural aymara y quechua, posicionando al turismo como herramienta para preservar y revalorizar la identidad cultural andina.",
+        "items": {
+          "livingTraditions": "Tradiciones Vivas",
+          "ancestralArt": "Arte Ancestral",
+          "andeanWisdom": "Sabiduría Andina"
+        }
+      },
+      "card3": {
+        "title": "Experiencias Vivenciales",
+        "description": "Especialistas en turismo vivencial que permite al viajero sumergirse en la vida cotidiana y espiritual de las comunidades andinas.",
+        "items": {
+          "authenticity": "Autenticidad",
+          "depth": "Profundidad",
+          "transformation": "Transformación"
+        }
+      }
+    },
+    "goals": {
+      "title": "NUESTROS OBJETIVOS",
+      "headline1": "5 Pilares que",
+      "headline2": "Nos Guían",
+      "items": {
+        "integratedExperiences": {
+          "title": "Experiencias Integradas",
+          "description": "Diseñar experiencias que integren paisajes, historia y tradiciones andinas vivas a través de festividades, gastronomía, artesanía y convivencia con comunidades."
+        },
+        "communityTourism": {
+          "title": "Turismo Comunitario",
+          "description": "Promover el turismo sostenible y comunitario en alianza con familias y comunidades locales, generando ingresos justos y sostenibles."
+        },
+        "andeanWorldview": {
+          "title": "Cosmovisión Andina",
+          "description": "Fomentar el respeto y la valoración de la cosmovisión andina, transmitiendo valores como el ayni (reciprocidad) y la armonía con la naturaleza."
+        },
+        "andeanHospitality": {
+          "title": "Hospitalidad Andina",
+          "description": "Ofrecer un servicio seguro, confiable y personalizado, con el sello único de la hospitalidad del altiplano."
+        },
+        "regionalDevelopment": {
+          "title": "Desarrollo Regional",
+          "description": "Contribuir al desarrollo económico y cultural de nuestra región, fortaleciendo el orgullo por nuestras raíces y preservando la identidad cultural."
+        }
+      }
+    },
+    "team": {
+      "title": "NUESTRO EQUIPO",
+      "headline1": "Conoce al",
+      "headline2": "Corazón de Vicuña",
+      "jorge": {
+        "name": "Jorge Cruz",
+        "position": "Gerente de Ventas",
+        "description": "Especialista en diseñar experiencias personalizadas y asegurar que cada viajero encuentre la aventura perfecta en los Andes."
+      },
+      "jacqueline": {
+        "name": "Jacqueline Mamani",
+        "position": "Gerenta de Reservas",
+        "description": "Se encarga de coordinar todos los detalles para que tu viaje sea perfecto, desde el alojamiento hasta las actividades especiales."
+      }
+    },
+    "cta": {
+      "headline1": "¿Listo para",
+      "headline2": "Explorar los Andes?",
+      "description": "Diseñamos experiencias únicas que conectan con la esencia andina",
+      "button1": "Planear Mi Viaje",
+      "button2": "Ver Paquetes"
+    }
+  },
+  
+  "Contact": {
+    "hero": {
+      "title": "Contáctanos",
+      "subtitle": "¿Tienes preguntas sobre un tour o necesitas un itinerario personalizado? Escríbenos y te responderemos lo antes posible."
+    },
+    "sidebar": {
+      "title": "Ponte en Contacto",
+      "company": "experiencias auténticas en todo Perú con",
+      "emailLabel": "Correo Electrónico",
+      "phoneLabel": "Teléfono / WhatsApp",
+      "whatsappButton": "Mensaje por WhatsApp",
+      "emailButton": "Enviar Correo",
+      "responseTime": "Normalmente respondemos en 24 horas durante días laborables. Para consultas urgentes, contáctanos por WhatsApp."
+    },
+    "form": {
+      "title": "Envíanos un Mensaje",
+      "subtitle": "Comparte tus fechas de viaje, número de viajeros e intereses. Nuestro equipo responderá con propuestas personalizadas y próximos pasos."
+    },
+    "badges": {
+      "certified": "Guías Certificados",
+      "rated": "5 Estrellas",
+      "support": "Soporte 24/7"
+    }
+  }
+
+}

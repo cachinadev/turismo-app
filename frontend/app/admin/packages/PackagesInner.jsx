@@ -376,11 +376,11 @@ export default function PackagesInner() {
 
   return (
     <AdminGuard>
-      <section className="container-default py-8 space-y-6">
+      <section className="container-default py-8 space-y-6 pt-20">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Package Management</h1>
+            <h1 className="text-3xl font-bold text-gray-900 py-10">Package Management</h1>
             <p className="text-gray-600 mt-1">
               Manage your travel packages, promotions, and availability
             </p>

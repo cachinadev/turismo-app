@@ -52,7 +52,7 @@ export const withBase = (base, path = '') =>
 export const CONTACT_PHONE =
   process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ||
   process.env.NEXT_PUBLIC_PHONE ||
-  '+51 982397386';
+  '+51 953858267';
 
 export const WHATSAPP_DEFAULT_MESSAGE =
   process.env.NEXT_PUBLIC_WHATSAPP_DEFAULT_MESSAGE ||

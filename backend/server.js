@@ -1,4 +1,3 @@
-// backend/server.js
 require('dotenv').config();
 const express       = require('express');
 const cookieParser  = require('cookie-parser');
@@ -18,22 +17,29 @@ const packageRoutes = require('./src/routes/packages');
 const bookingRoutes = require('./src/routes/bookings');
 const uploadRoutes  = require('./src/routes/uploads');
 const contactRoutes = require('./src/routes/contact');
+const complaintsRoutes = require('./src/routes/complaints');
 
 const app = express();
 
-/* ---------- Sanity check for critical env vars ---------- */
+/* ------------------------------------------------------
+ * ✅ Validación de variables críticas
+ * ------------------------------------------------------ */
 ['MONGO_URI', 'JWT_SECRET'].forEach((key) => {
   if (!process.env[key]) throw new Error(`❌ Missing required env var: ${key}`);
 });
 
-/* ---------- App hardening ---------- */
+/* ------------------------------------------------------
+ * 🧱 Seguridad y configuración base
+ * ------------------------------------------------------ */
 app.disable('x-powered-by');
 app.set('trust proxy', process.env.NODE_ENV === 'production' ? 1 : false);
 app.use(cookieParser());
 
-/* ---------- Helpers ---------- */
+/* ------------------------------------------------------
+ * 🧩 Utilidades locales
+ * ------------------------------------------------------ */
 function parseCsv(v = '') {
-  return String(v).split(',').map(s => s.trim()).filter(Boolean);
+  return String(v).split(',').map((s) => s.trim()).filter(Boolean);
 }
 function normalizeOrigin(o = '') {
   return String(o).replace(/\/+$/, '');
@@ -60,11 +66,14 @@ function buildCorsOptions() {
   };
 }
 
+/* ------------------------------------------------------
+ * 🚀 Función principal
+ * ------------------------------------------------------ */
 async function start() {
   await connectDB();
   await seedAdmin();
 
-  // Server-Timing
+  /* 🕒 Server-Timing para métricas */
   app.use((req, res, next) => {
     const t0 = process.hrtime.bigint();
     onHeaders(res, () => {
@@ -77,45 +86,58 @@ async function start() {
     next();
   });
 
-  // CORS
+  /* 🌍 CORS */
   const corsOptions = buildCorsOptions();
   app.use((req, res, next) => {
     cors(corsOptions)(req, res, (err) => {
       if (err) {
-        return res.status(err.statusCode || 403)
-          .json({ code: 'CORS_BLOCKED', message: 'CORS rechazado', origin: req.headers.origin || null });
+        return res.status(err.statusCode || 403).json({
+          code: 'CORS_BLOCKED',
+          message: 'CORS rechazado',
+          origin: req.headers.origin || null,
+        });
       }
       next();
     });
   });
   app.options('*', cors(corsOptions), (_req, res) => res.sendStatus(204));
 
-  // Helmet
-  app.use(helmet({
-    crossOriginResourcePolicy: { policy: 'cross-origin' },
-    contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
-  }));
+  /* 🛡 Helmet */
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      crossOriginOpenerPolicy: false,
+      contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
+    })
+  );
 
+  /* 🗜 Compression */
   app.use(compression());
 
-  // Logging
+  /* 🪵 Logging */
   if (process.env.NODE_ENV !== 'production') {
-    app.use(morgan('dev', {
-      skip: (req) =>
-        req.path === '/healthz' ||
-        req.path.startsWith('/uploads/') ||
-        req.path === '/favicon.ico',
-    }));
+    app.use(
+      morgan('dev', {
+        skip: (req) =>
+          req.path === '/healthz' ||
+          req.path.startsWith('/uploads/') ||
+          req.path === '/favicon.ico',
+      })
+    );
   } else {
-    app.use(morgan('combined'));
+    app.use(morgan('combined', { skip: (req) => req.path === '/healthz' }));
   }
 
-  // Body parsers
-  app.use(express.json({
-    limit: process.env.JSON_LIMIT || '10mb',
-    strict: true,
-    verify: (req, _res, buf) => { req.rawBody = buf; },
-  }));
+  /* 📦 Parsers */
+  app.use(
+    express.json({
+      limit: process.env.JSON_LIMIT || '10mb',
+      strict: true,
+      verify: (req, _res, buf) => {
+        req.rawBody = buf;
+      },
+    })
+  );
   app.use((err, _req, res, next) => {
     if (err?.type === 'entity.parse.failed') {
       return res.status(400).json({ code: 'BAD_JSON', message: 'JSON inválido' });
@@ -124,27 +146,34 @@ async function start() {
   });
   app.use(express.urlencoded({ extended: true }));
 
-  // Static uploads
-  app.use('/uploads',
-    express.static(path.join(__dirname, 'uploads'), {
+  /* 📁 Archivos estáticos */
+  app.use(
+    '/uploads',
+    express.static(path.join(__dirname, 'public/uploads'), {
       setHeaders: (res) => {
         res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+        res.setHeader('Access-Control-Allow-Origin', '*');
       },
-    }),
+    })
   );
 
-  // Health checks
+  /* ❤️ Healthcheck */
   app.get('/healthz', (_req, res) => res.json({ ok: true, ts: Date.now() }));
-  app.get('/', (_req, res) => res.json({ ok: true }));
+  app.get('/', (_req, res) => res.json({ ok: true, msg: 'API Turismo OK' }));
 
-  // Routes
+  /* ------------------------------------------------------
+   * 🧩 API Routes
+   * ------------------------------------------------------ */
   app.use('/api/auth', authRoutes);
   app.use('/api/packages', packageRoutes);
   app.use('/api/bookings', bookingRoutes);
   app.use('/api/uploads', uploadRoutes);
   app.use('/api/contact', contactRoutes);
 
-  // 404 for unknown API routes
+  // ✅ Reclamos
+  app.use('/api/complaints', complaintsRoutes);
+
+  /* 404 handler */
   app.use((req, res, next) => {
     if (req.path.startsWith('/api/')) {
       return res.status(404).json({ code: 'NOT_FOUND', message: 'Recurso no encontrado' });
@@ -152,28 +181,37 @@ async function start() {
     return next();
   });
 
-  // Central error handler
+  /* ⚠️ Error handler */
   app.use(errorHandler);
 
+  /* ------------------------------------------------------
+   * 🚦 Start server
+   * ------------------------------------------------------ */
   const port = Number(process.env.PORT || 4000);
   const server = app.listen(port, () => {
     console.log(`🚀 Backend running at http://localhost:${port}`);
   });
 
-  // Graceful shutdown
+  /* 🧹 Graceful shutdown */
   const shutdown = (sig) => () => {
     console.log(`\n${sig} recibido. Cerrando servidor…`);
-    server.close(() => {
+    server.close(async () => {
       console.log('HTTP cerrado.');
       process.exit(0);
     });
     setTimeout(() => process.exit(1), 8000).unref();
   };
+
   process.on('SIGINT', shutdown('SIGINT'));
   process.on('SIGTERM', shutdown('SIGTERM'));
-
   process.on('unhandledRejection', (reason) => console.error('Unhandled Rejection:', reason));
   process.on('uncaughtException', (err) => console.error('Uncaught Exception:', err));
 }
 
-start();
+/* ------------------------------------------------------
+ * 🚀 Ejecutar servidor
+ * ------------------------------------------------------ */
+start().catch((err) => {
+  console.error('❌ Error inicializando el servidor:', err);
+  process.exit(1);
+});

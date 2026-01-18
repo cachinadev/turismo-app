@@ -12,7 +12,7 @@ function AdminLoginInner() {
   const sp = useSearchParams();
 
   // Redirect target after login (optional: ?next=/admin/packages)
-  const next = sp?.get('next') || '/admin/packages';
+  const next = sp?.get('next') || '/admin/dashboard';
   const force = sp?.get('force') === '1';   // ignore any existing token
   const logout = sp?.get('logout') === '1'; // clear any existing token
 
@@ -153,7 +153,7 @@ function AdminLoginInner() {
   }
 
   return (
-    <section className="container-default py-10 flex justify-center">
+    <section className="container-default py-20 flex justify-center">
       <form
         onSubmit={login}
         className="card w-full max-w-md p-6 space-y-5"

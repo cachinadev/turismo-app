@@ -11,7 +11,7 @@ export default function NewPackageInner() {
 
   return (
     <AdminGuard>
-      <section className="container-default py-8">
+      <section className="container-default py-20 ">
         {/* Breadcrumbs + quick actions */}
         <div className="flex items-center justify-between gap-3 mb-4 text-sm">
           <div className="flex items-center gap-2 text-slate-600">
@@ -26,7 +26,7 @@ export default function NewPackageInner() {
           </Link>
         </div>
 
-        <h2 className="text-2xl font-bold mb-4">Create new package</h2>
+        <h2 className="text-2xl font-bold mb-4 pt-10">Create new package</h2>
 
         <PackageForm
           onSaved={(doc) => {

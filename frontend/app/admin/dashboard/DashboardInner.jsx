@@ -1,8 +1,10 @@
 // frontend/app/admin/dashboard/DashboardInner.jsx
+// frontend/app/admin/dashboard/DashboardInner.jsx
 "use client";
 
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import AdminGuard from "../AdminGuard";
 import { API_BASE } from "@/app/lib/config";
 import { mediaUrl } from "@/app/lib/media";
@@ -53,6 +55,8 @@ const getBookingValue = (b) => {
 const BOOKING_STATUSES = ["Pendiente", "En proceso", "Finalizado", "Cancelado"];
 
 export default function DashboardInner() {
+  const router = useRouter();
+  
   /* ===== State ===== */
   const [packages, setPackages] = useState([]);
   const [bookings, setBookings] = useState([]);
@@ -66,6 +70,7 @@ export default function DashboardInner() {
   const [bStatus, setBStatus] = useState("");
   const [bFrom, setBFrom] = useState("");
   const [bTo, setBTo] = useState("");
+  const [showCancelled, setShowCancelled] = useState(false); // New filter for cancelled bookings
 
   // UI state
   const [deletingPkgId, setDeletingPkgId] = useState(null);
@@ -82,6 +87,20 @@ export default function DashboardInner() {
     }
   };
 
+  /* ===== Logout Function ===== */
+  const handleLogout = useCallback(() => {
+    if (confirm("¿Estás seguro de que quieres cerrar sesión?")) {
+      try {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        router.push("/admin/login");
+      } catch (error) {
+        console.error("Error during logout:", error);
+        router.push("/admin/login");
+      }
+    }
+  }, [router]);
+
   /* ===== Fetch data ===== */
   const fetchData = useCallback(async () => {
     if (fetchingRef.current) return;
@@ -94,7 +113,7 @@ export default function DashboardInner() {
     try {
       const [pRes, bRes, eRes] = await Promise.all([
         fetch(`${API_BASE}/api/packages?preview=1&limit=120`, { cache: "no-store" }),
-        fetch(`${API_BASE}/api/bookings?limit=200`, {
+        fetch(`${API_BASE}/api/bookings?limit=200&includeCancelled=true`, { // Include cancelled in API call
           headers: { Authorization: `Bearer ${token}` },
           cache: "no-store",
         }),
@@ -183,6 +202,7 @@ export default function DashboardInner() {
     const token = getToken();
     let prevBooking = null;
 
+    // Store previous booking state for rollback
     setBookings((prev) =>
       prev.map((b) => {
         if ((b._id || b.id) === id) prevBooking = b;
@@ -190,7 +210,7 @@ export default function DashboardInner() {
       })
     );
 
-    // optimistic update
+    // Optimistic update - don't remove from state, just update status
     setBookings((prev) =>
       prev.map((b) => {
         if ((b._id || b.id) !== id) return b;
@@ -216,9 +236,19 @@ export default function DashboardInner() {
             : {}),
         }),
       });
-      if (!res.ok) throw new Error();
+      
+      if (!res.ok) throw new Error("Failed to update status");
+      
       setLastUpdated(new Date());
+      
+      // Show success message for cancellation
+      if (status === "Cancelado") {
+        // You could add a toast notification here
+        console.log("Reserva cancelada exitosamente");
+      }
+      
     } catch {
+      // Rollback on error
       setBookings((prev) =>
         prev.map((b) => ((b._id || b.id) === id ? prevBooking : b))
       );
@@ -260,7 +290,12 @@ export default function DashboardInner() {
     const toInclusive = bTo ? new Date(`${bTo}T23:59:59.999`) : null;
 
     return bookings.filter((b) => {
-      if (bStatus && (b.status || "Pendiente") !== bStatus) return false;
+      const status = b.status || "Pendiente";
+      
+      // Handle cancelled bookings filter
+      if (!showCancelled && status === "Cancelado") return false;
+      
+      if (bStatus && status !== bStatus) return false;
 
       const when = b.date ? new Date(b.date) : null;
       if (from && when && when < from) return false;
@@ -281,17 +316,20 @@ export default function DashboardInner() {
       }
       return true;
     });
-  }, [bookings, bQ, bStatus, bFrom, bTo]);
+  }, [bookings, bQ, bStatus, bFrom, bTo, showCancelled]);
 
   /* ===== KPIs ===== */
   const kpis = useMemo(() => {
-    const byStatus = bookings.reduce((acc, b) => {
+    const activeBookings = bookings.filter(b => (b.status || "Pendiente") !== "Cancelado");
+    const cancelledBookings = bookings.filter(b => (b.status || "Pendiente") === "Cancelado");
+
+    const byStatus = activeBookings.reduce((acc, b) => {
       const s = b.status || "Pendiente";
       acc[s] = (acc[s] || 0) + 1;
       return acc;
     }, {});
 
-    const revenueByCurrency = bookings
+    const revenueByCurrency = activeBookings
       .filter((b) => (b.status || "") === "Finalizado")
       .reduce((acc, b) => {
         const cur = (b.currency || "PEN").toUpperCase();
@@ -304,6 +342,8 @@ export default function DashboardInner() {
       totalPkgs: packages.length,
       activePkgs: packages.filter((p) => p.active !== false).length,
       promoPkgs: packages.filter((p) => p.isPromoActive).length,
+      totalBookings: activeBookings.length,
+      cancelledBookings: cancelledBookings.length,
       byStatus,
       revenueByCurrency,
     };
@@ -369,14 +409,14 @@ export default function DashboardInner() {
       case "Cancelado":
         return "badge bg-rose-600 text-white";
       default:
-        return "badge";
+        return "badge bg-amber-500 text-white";
     }
   };
 
   /* ===== UI ===== */
   return (
     <AdminGuard>
-      <section className="container-default py-8">
+      <section className="container-default py-20">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -392,7 +432,7 @@ export default function DashboardInner() {
               </div>
             )}
             <div>
-              <h2 className="text-2xl font-bold">{COMPANY_NAME} • Panel Admin</h2>
+              <h2 className="text-2xl font-bold py-10">{COMPANY_NAME} • Panel Admin</h2>
               {lastUpdated && (
                 <p className="text-xs text-slate-500">
                   Actualizado: {fmtDT(lastUpdated)}
@@ -415,14 +455,29 @@ export default function DashboardInner() {
             <Link href="/admin/packages" className="btn btn-ghost">
               Gestión de paquetes
             </Link>
+            <button 
+              onClick={handleLogout}
+              className="btn btn-ghost text-red-600 hover:bg-red-50 hover:text-red-700"
+              title="Cerrar sesión"
+            >
+              Cerrar sesión
+            </button>
           </div>
         </div>
 
-        {err && <p className="text-red-600 mt-2">{err}</p>}
-        {loading && <p className="text-slate-600 mt-2">Cargando…</p>}
+        {err && (
+          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-700">{err}</p>
+          </div>
+        )}
+        {loading && (
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-blue-700">Cargando datos del dashboard…</p>
+          </div>
+        )}
 
         {/* KPIs */}
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mt-6">
+        <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mt-6">
           <div className="card">
             <div className="card-body">
               <p className="text-xs text-slate-500">Paquetes totales</p>
@@ -443,8 +498,14 @@ export default function DashboardInner() {
           </div>
           <div className="card">
             <div className="card-body">
-              <p className="text-xs text-slate-500">Reservas</p>
-              <p className="text-xl font-semibold">{bookings.length}</p>
+              <p className="text-xs text-slate-500">Reservas activas</p>
+              <p className="text-xl font-semibold">{kpis.totalBookings}</p>
+            </div>
+          </div>
+          <div className="card">
+            <div className="card-body">
+              <p className="text-xs text-slate-500">Reservas canceladas</p>
+              <p className="text-xl font-semibold text-rose-600">{kpis.cancelledBookings}</p>
             </div>
           </div>
           {Object.entries(kpis.revenueByCurrency).map(([cur, amount]) => (
@@ -470,6 +531,9 @@ export default function DashboardInner() {
                     {s}: {kpis.byStatus[s] || 0}
                   </span>
                 ))}
+                <span className="px-2 py-1 rounded bg-rose-100 text-rose-700">
+                  Cancelado: {kpis.cancelledBookings}
+                </span>
               </div>
               <button className="btn btn-ghost" onClick={exportCSV}>
                 Exportar CSV
@@ -479,10 +543,10 @@ export default function DashboardInner() {
 
           {/* Filters */}
           <div className="card">
-            <div className="card-body grid grid-cols-1 md:grid-cols-5 gap-3">
+            <div className="card-body grid grid-cols-1 md:grid-cols-6 gap-3">
               <input
                 className="input md:col-span-2"
-                placeholder="Buscar…"
+                placeholder="Buscar por cliente, email, paquete…"
                 value={bQ}
                 onChange={(e) => setBQ(e.target.value)}
               />
@@ -503,18 +567,43 @@ export default function DashboardInner() {
                 className="input"
                 value={bFrom}
                 onChange={(e) => setBFrom(e.target.value)}
+                placeholder="Desde"
               />
               <input
                 type="date"
                 className="input"
                 value={bTo}
                 onChange={(e) => setBTo(e.target.value)}
+                placeholder="Hasta"
               />
+              <label className="flex items-center gap-2 bg-slate-50 p-2 rounded">
+                <input
+                  type="checkbox"
+                  checked={showCancelled}
+                  onChange={(e) => setShowCancelled(e.target.checked)}
+                  className="rounded"
+                />
+                <span className="text-sm text-slate-700">Mostrar canceladas</span>
+              </label>
             </div>
           </div>
 
           {(!loading && bookingsFiltered.length === 0) ? (
-            <p className="text-slate-600">No hay reservas con esos filtros.</p>
+            <div className="card">
+              <div className="card-body text-center py-8">
+                <p className="text-slate-600">
+                  {showCancelled ? "No hay reservas (incluyendo canceladas) con esos filtros." : "No hay reservas activas con esos filtros."}
+                </p>
+                {!showCancelled && (
+                  <button 
+                    onClick={() => setShowCancelled(true)}
+                    className="btn btn-ghost btn-sm mt-2"
+                  >
+                    Mostrar reservas canceladas
+                  </button>
+                )}
+              </div>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {bookingsFiltered.map((b) => {
@@ -525,9 +614,13 @@ export default function DashboardInner() {
                 const cust = b.customer || {};
                 const adults = b.people?.adults ?? 1;
                 const children = b.people?.children ?? null;
+                const isCancelled = status === "Cancelado";
 
                 return (
-                  <div key={id} className="card">
+                  <div 
+                    key={id} 
+                    className={`card ${isCancelled ? 'opacity-70 bg-slate-50 border-slate-200' : ''}`}
+                  >
                     <div className="p-4 space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="font-semibold line-clamp-1">{pkgTitle}</div>
@@ -555,26 +648,38 @@ export default function DashboardInner() {
                       </div>
 
                       {/* Actions */}
-                      <div className="flex flex-wrap gap-2 pt-2">
-                        {BOOKING_STATUSES.map((s) => {
-                          const disabled = s === status;
-                          return (
-                            <button
-                              key={s}
-                              className={`px-3 py-1 rounded border text-sm ${
-                                disabled
-                                  ? "bg-slate-200 text-slate-600 cursor-not-allowed"
-                                  : "bg-white hover:bg-slate-50"
-                              }`}
-                              onClick={() => !disabled && updateStatus(id, s)}
-                              disabled={disabled}
-                              title={`Marcar como ${s}`}
-                            >
-                              {s}
-                            </button>
-                          );
-                        })}
-                      </div>
+                      {!isCancelled && (
+                        <div className="flex flex-wrap gap-2 pt-2">
+                          {BOOKING_STATUSES.map((s) => {
+                            const disabled = s === status;
+                            return (
+                              <button
+                                key={s}
+                                className={`px-3 py-1 rounded border text-sm ${
+                                  disabled
+                                    ? "bg-slate-200 text-slate-600 cursor-not-allowed"
+                                    : s === "Cancelado"
+                                    ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
+                                    : "bg-white hover:bg-slate-50"
+                                }`}
+                                onClick={() => !disabled && updateStatus(id, s)}
+                                disabled={disabled}
+                                title={`Marcar como ${s}`}
+                              >
+                                {s}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {isCancelled && (
+                        <div className="pt-2">
+                          <p className="text-xs text-rose-600 bg-rose-50 p-2 rounded">
+                            ⚠️ Esta reserva fue cancelada
+                          </p>
+                        </div>
+                      )}
 
                       <details className="mt-2 text-sm">
                         <summary className="cursor-pointer text-slate-600">

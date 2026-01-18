@@ -18,3 +18,12 @@ yarn-error.log*
 frontend/public/video/
 *.mp4
 *.mov
+
+# Carpetas de prueba (NO versionar)
+backend2/
+frontend2/
+
+# Variables de entorno
+.env
+.env.*
+node_modules/
