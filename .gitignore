@@ -20,8 +20,16 @@ frontend/public/video/
 *.mov
 
 # Carpetas de prueba (NO versionar)
+backend2*/
+frontend2*/
 backend2/
 frontend2/
+backend2_old/
+frontend2_old/
+node_modules/
+.env
+.env.*
+
 
 # Variables de entorno
 .env
