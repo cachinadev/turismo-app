@@ -1,4 +1,4 @@
-// frontend/app/packages/[slug]/page.js
+// frontend/app/[locale]/packages/[slug]/page.js
 /* eslint-disable @next/next/no-img-element */
 
 import BookingForm from "@/app/components/BookingForm";
@@ -16,14 +16,18 @@ import {
   MessageCircle,
   Mail,
   ArrowLeft,
-  Star,
   Users,
   Shield,
   Calendar,
   ChevronRight,
   Info,
-  Tag
-} from 'lucide-react';
+  Tag,
+  Route,
+  Backpack,
+  Sparkles,
+  Navigation,
+  AlertTriangle,
+} from "lucide-react";
 
 /* -------------------------------------------------------
  * 🧊 Disable caching so locale strings always match UI
@@ -33,21 +37,20 @@ export const revalidate = 0;
 
 /* ---------- Branding & Contact ---------- */
 const BRAND_NAME = process.env.NEXT_PUBLIC_BRAND_NAME || "Vicuña Adventures";
-const EMAIL_SALES = process.env.NEXT_PUBLIC_EMAIL_SALES || "contact@vicuadvent.com";
-const PHONE = process.env.NEXT_PUBLIC_PHONE || "+51 953858267";
-const WA_NUMBER = (PHONE.match(/\d+/g) || []).join("") || "51953858267";
+// keep compatible with both env naming styles you used previously
+const EMAIL_SALES =
+  process.env.NEXT_PUBLIC_EMAIL_SALES ||
+  process.env.NEXT_PUBLIC_CONTACT_EMAIL ||
+  "contact@vicuadvent.com";
+const PHONE =
+  process.env.NEXT_PUBLIC_PHONE ||
+  process.env.NEXT_PUBLIC_CONTACT_PHONE ||
+  "+51 953858267";
+const WA_NUMBER = (String(PHONE).match(/\d+/g) || []).join("") || "51953858267";
 
 /* ---------- i18n helpers ---------- */
 const SUPPORTED = ["es", "en", "fr", "pt", "ru"];
 const DEFAULT_LOCALE = "es";
-
-const LOCALE_TO_INTL = {
-  es: "es-PE",
-  en: "en-US",
-  fr: "fr-FR",
-  pt: "pt-PT",
-  ru: "ru-RU",
-};
 
 async function loadMsgs(locale) {
   try {
@@ -70,28 +73,44 @@ const tr = (dict, path, fallback) => {
 };
 
 /* ---------- Utils ---------- */
-// FORZAR formato consistente usando siempre 'en-US' para evitar diferencias
+// Force consistent format using 'en-US' to avoid server/client locale differences
 const money = (v, curr = "PEN") => {
   const value = Number(v || 0);
   const currency = (curr || "PEN").toUpperCase();
-  
-  // Siempre usar 'en-US' para consistencia entre servidor y cliente
-  const formatter = new Intl.NumberFormat('en-US', {
+  const formatter = new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: currency,
+    currency,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-  
   return formatter.format(value);
 };
 
-const normalizeBase = (u = "") => u.replace(/\/+$/, "");
+const normalizeBase = (u = "") => String(u || "").replace(/\/+$/, "");
 
 const whatsappHref = (title, url) =>
   `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(
     `Hi! I'm interested in "${title}". ${url || ""}`
   )}`;
+
+const parseLines = (v) =>
+  Array.from(
+    new Set(String(v || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean))
+  );
+
+const normalizeStringArray = (v) => {
+  if (Array.isArray(v)) return v.map((x) => String(x || "").trim()).filter(Boolean);
+  return parseLines(v);
+};
+
+const safeText = (v, max = 200) =>
+  String(v || "").replace(/\s+/g, " ").trim().slice(0, max);
+
+// ✅ FIX for your runtime error
+const nonEmpty = (v) => {
+  if (v === null || v === undefined) return false;
+  return String(v).trim().length > 0;
+};
 
 /* ---------- Fetch helpers ---------- */
 async function fetchPackage(slug) {
@@ -106,7 +125,32 @@ async function fetchPackage(slug) {
           .map((m) => ({ ...m, url: mediaUrl(m.url) }))
       : [];
 
-    return { ...json, media };
+    // Normalize newer fields coming from the updated backend/schema
+    const itinerary = Array.isArray(json?.itinerary) ? json.itinerary : [];
+    const whatToBring = normalizeStringArray(json?.whatToBring);
+    const recommendations = normalizeStringArray(json?.recommendations);
+
+    const startTimes = Array.isArray(json?.startTimes)
+      ? json.startTimes
+      : typeof json?.startTimes === "string"
+      ? json.startTimes.split(",").map((s) => s.trim()).filter(Boolean)
+      : [];
+
+    const availableDays = Array.isArray(json?.availableDays)
+      ? json.availableDays
+      : typeof json?.availableDays === "string"
+      ? json.availableDays.split(",").map((s) => s.trim()).filter(Boolean)
+      : [];
+
+    return {
+      ...json,
+      media,
+      itinerary,
+      whatToBring,
+      recommendations,
+      startTimes,
+      availableDays,
+    };
   } catch {
     return null;
   }
@@ -189,33 +233,22 @@ function buildShareLinks({ title, url }) {
 }
 
 /* ---------- Contextual message ---------- */
-function buildContextualMessage({
-  pkg,
-  hasPromo,
-  discountPct,
-  priceOrig,
-  priceNow,
-  currency,
-  dict,
-}) {
-  const langs = Array.isArray(pkg.languages) && pkg.languages.length
-    ? pkg.languages.join(", ")
-    : "Spanish / English";
+function buildContextualMessage({ pkg, hasPromo, discountPct, priceOrig, priceNow, currency, dict }) {
+  const langs =
+    Array.isArray(pkg.languages) && pkg.languages.length
+      ? pkg.languages.join(", ")
+      : "Spanish / English";
 
   if (hasPromo && typeof discountPct === "number") {
     return {
-      title: tr(
-        dict,
-        "PackageDetail.dealTitle",
-        `Limited-time deal: save ${discountPct}%`
-      ).replace("{pct}", String(discountPct)),
+      title: tr(dict, "PackageDetail.dealTitle", `Limited-time deal: save ${discountPct}%`).replace(
+        "{pct}",
+        String(discountPct)
+      ),
       detail: tr(
         dict,
         "PackageDetail.dealDetail",
-        `Now ${money(priceNow, currency)} (was ${money(
-          priceOrig,
-          currency
-        )}). Daily departures, ${langs}.`
+        `Now ${money(priceNow, currency)} (was ${money(priceOrig, currency)}). Daily departures, ${langs}.`
       )
         .replace("{now}", money(priceNow, currency))
         .replace("{was}", money(priceOrig, currency))
@@ -226,11 +259,7 @@ function buildContextualMessage({
 
   if (pkg.city && pkg.durationHours) {
     return {
-      title: tr(
-        dict,
-        "PackageDetail.contextShort",
-        `Great for a ${pkg.durationHours}h visit in ${pkg.city}`
-      )
+      title: tr(dict, "PackageDetail.contextShort", `Great for a ${pkg.durationHours}h visit in ${pkg.city}`)
         .replace("{hours}", String(pkg.durationHours))
         .replace("{city}", String(pkg.city)),
       detail: tr(
@@ -256,7 +285,9 @@ function buildContextualMessage({
 /* ---------- Small Reusable Components ---------- */
 function FactCard({ icon: Icon, label, value, className = "" }) {
   return (
-    <div className={`bg-white rounded-2xl border border-slate-100 p-4 hover:shadow-md transition-all duration-300 ${className}`}>
+    <div
+      className={`bg-white rounded-2xl border border-slate-100 p-4 hover:shadow-md transition-all duration-300 ${className}`}
+    >
       <div className="flex items-center gap-3">
         <div className="p-2 rounded-lg bg-gradient-to-br from-[#0086C0]/10 to-[#0E374A]/5 border border-slate-200">
           <Icon className="w-5 h-5 text-[#0086C0]" />
@@ -277,10 +308,13 @@ function FactCard({ icon: Icon, label, value, className = "" }) {
 function FactList({ title, items, type = "includes" }) {
   const Icon = type === "includes" ? CheckCircle : XCircle;
   const iconColor = type === "includes" ? "#A3B117" : "#64748B";
-  
+
   return (
     <div className="bg-white rounded-2xl border border-slate-100 p-6 hover:shadow-md transition-all duration-300">
-      <h3 className="font-bold text-[#0E374A] mb-4 flex items-center gap-2" style={{ fontFamily: "'Bree Serif', serif" }}>
+      <h3
+        className="font-bold text-[#0E374A] mb-4 flex items-center gap-2"
+        style={{ fontFamily: "'Bree Serif', serif" }}
+      >
         <div className="p-1 rounded-lg bg-gradient-to-br from-[#0086C0]/10 to-[#0E374A]/5">
           <Icon className="w-5 h-5" style={{ color: iconColor }} />
         </div>
@@ -294,7 +328,9 @@ function FactList({ title, items, type = "includes" }) {
                 <Icon className="w-3 h-3" style={{ color: iconColor }} />
               </div>
             </div>
-            <span className="text-sm" style={{ fontFamily: "'Bree Serif', serif" }}>{item}</span>
+            <span className="text-sm" style={{ fontFamily: "'Bree Serif', serif" }}>
+              {item}
+            </span>
           </li>
         ))}
       </ul>
@@ -302,13 +338,149 @@ function FactList({ title, items, type = "includes" }) {
   );
 }
 
+function Chips({ icon: Icon, label, items }) {
+  if (!Array.isArray(items) || items.length === 0) return null;
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 p-6 hover:shadow-md transition-all duration-300">
+      <h3
+        className="font-bold text-[#0E374A] mb-4 flex items-center gap-2"
+        style={{ fontFamily: "'Bree Serif', serif" }}
+      >
+        <div className="p-1 rounded-lg bg-gradient-to-br from-[#0086C0]/10 to-[#0E374A]/5">
+          <Icon className="w-5 h-5 text-[#0086C0]" />
+        </div>
+        {label}
+      </h3>
+      <div className="flex flex-wrap gap-2">
+        {items.slice(0, 30).map((x, i) => (
+          <span
+            key={`${x}-${i}`}
+            className="px-3 py-1 rounded-full text-xs font-bold bg-slate-50 border border-slate-200 text-[#0E374A]"
+            style={{ fontFamily: "'Bree Serif', serif" }}
+          >
+            {x}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Itinerary({ dict, itinerary = [], mapsUrl }) {
+  const t = (k, fb) => tr(dict, `PackageDetail.${k}`, fb);
+  if (!Array.isArray(itinerary) || itinerary.length === 0) return null;
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 p-6 hover:shadow-md transition-all duration-300">
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <h3
+          className="font-bold text-[#0E374A] flex items-center gap-2"
+          style={{ fontFamily: "'Bree Serif', serif" }}
+        >
+          <div className="p-1 rounded-lg bg-gradient-to-br from-[#0086C0]/10 to-[#0E374A]/5">
+            <Route className="w-5 h-5 text-[#0086C0]" />
+          </div>
+          {t("itinerary", "Itinerary")}
+        </h3>
+
+        {mapsUrl ? (
+          <a
+            href={mapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-bold text-[#0086C0] hover:text-[#0E374A] underline flex items-center gap-1"
+            style={{ fontFamily: "'Bree Serif', serif" }}
+          >
+            <Navigation className="w-4 h-4" />
+            {t("viewRoute", "View route")}
+          </a>
+        ) : null}
+      </div>
+
+      <ol className="space-y-4">
+        {itinerary.slice(0, 40).map((s, idx) => {
+          const time = safeText(s?.time, 20);
+          const title = safeText(s?.title, 140);
+          const details = String(s?.details || "").trim();
+          const loc = safeText(s?.location, 180);
+          const stepMaps = nonEmpty(s?.mapsUrl) ? String(s.mapsUrl) : "";
+          const durationMin =
+            Number.isFinite(Number(s?.durationMin)) && Number(s.durationMin) > 0
+              ? Number(s.durationMin)
+              : null;
+
+          return (
+            <li key={idx} className="flex gap-3">
+              <div className="flex flex-col items-center">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#0086C0]/10 to-[#0E374A]/5 border border-slate-200 flex items-center justify-center text-xs font-black text-[#0086C0]">
+                  {idx + 1}
+                </div>
+                {idx !== itinerary.length - 1 && <div className="w-px flex-1 bg-slate-200 mt-2" />}
+              </div>
+
+              <div className="flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  {time ? (
+                    <span className="text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 px-2 py-1 rounded-full">
+                      {time}
+                    </span>
+                  ) : null}
+                  {durationMin ? (
+                    <span className="text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 px-2 py-1 rounded-full">
+                      {durationMin} min
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="mt-1 font-bold text-[#0E374A]" style={{ fontFamily: "'Bree Serif', serif" }}>
+                  {title || t("stop", "Stop")}
+                </div>
+
+                {(loc || stepMaps) && (
+                  <div className="mt-1 text-xs text-slate-600 flex flex-wrap items-center gap-2">
+                    {loc ? (
+                      <span className="inline-flex items-center gap-1">
+                        <MapPin className="w-3 h-3" />
+                        {loc}
+                      </span>
+                    ) : null}
+                    {stepMaps ? (
+                      <a
+                        href={stepMaps}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[#0086C0] hover:text-[#0E374A] underline font-bold"
+                      >
+                        <Navigation className="w-3 h-3" />
+                        {t("open", "Open")}
+                      </a>
+                    ) : null}
+                  </div>
+                )}
+
+                {details ? (
+                  <div
+                    className="mt-2 text-sm text-slate-700 leading-relaxed whitespace-pre-line"
+                    style={{ fontFamily: "'Bree Serif', serif" }}
+                  >
+                    {details}
+                  </div>
+                ) : null}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
 function BookingCard({ pkg, priceNow, priceOrig, hasPromo, currency, dict }) {
   const t = (k, fb) => tr(dict, `PackageDetail.${k}`, fb);
-  
-  // Precios formateados
+
   const formattedPriceNow = money(priceNow, currency);
   const formattedPriceOrig = money(priceOrig, currency);
-  
+
   return (
     <div id="book" className="bg-white rounded-2xl shadow-lg border-2 border-slate-200 overflow-hidden">
       <div className="p-6">
@@ -323,9 +495,7 @@ function BookingCard({ pkg, priceNow, priceOrig, hasPromo, currency, dict }) {
                   <div className="text-lg font-bold text-[#0086C0]" style={{ fontFamily: "'Bree Serif', serif" }}>
                     {formattedPriceNow}
                   </div>
-                  <div className="text-xs text-slate-500 line-through">
-                    {formattedPriceOrig}
-                  </div>
+                  <div className="text-xs text-slate-500 line-through">{formattedPriceOrig}</div>
                 </>
               ) : (
                 <div className="text-lg font-bold text-[#0086C0]" style={{ fontFamily: "'Bree Serif', serif" }}>
@@ -338,10 +508,10 @@ function BookingCard({ pkg, priceNow, priceOrig, hasPromo, currency, dict }) {
             {t("fastConfirmation", "Fast confirmation and 24/7 support.")}
           </div>
         </div>
+
         <div className="mt-4">
-          {/* Pasa los precios formateados al BookingForm */}
-          <BookingForm 
-            pkg={pkg} 
+          <BookingForm
+            pkg={pkg}
             formattedPriceNow={formattedPriceNow}
             formattedPriceOrig={formattedPriceOrig}
             hasPromo={hasPromo}
@@ -354,7 +524,7 @@ function BookingCard({ pkg, priceNow, priceOrig, hasPromo, currency, dict }) {
 
 function TrustBox({ dict }) {
   const t = (k, fb) => tr(dict, `PackageDetail.${k}`, fb);
-  
+
   return (
     <div className="bg-gradient-to-br from-[#0086C0]/5 to-[#0E374A]/5 rounded-2xl border border-[#0086C0]/20 p-6">
       <div className="font-bold text-[#0E374A] mb-4 flex items-center gap-2" style={{ fontFamily: "'Bree Serif', serif" }}>
@@ -366,7 +536,7 @@ function TrustBox({ dict }) {
           t("trust1", "Certified local operators"),
           t("trust2", "24/7 multilingual support"),
           t("trust3", "Flexible date changes"),
-          t("trust4", "Secure payments")
+          t("trust4", "Secure payments"),
         ].map((item, i) => (
           <li key={i} className="flex items-center gap-3 text-sm text-slate-700">
             <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#A3B117]/20 to-[#0086C0]/20 flex items-center justify-center flex-shrink-0">
@@ -382,7 +552,7 @@ function TrustBox({ dict }) {
 
 function HelpBox({ title, canonical, dict }) {
   const t = (k, fb) => tr(dict, `PackageDetail.${k}`, fb);
-  
+
   return (
     <div className="bg-gradient-to-br from-[#A3B117]/5 to-[#0086C0]/5 rounded-2xl border border-[#A3B117]/20 p-6">
       <div className="font-bold text-[#0E374A] mb-2 flex items-center gap-2" style={{ fontFamily: "'Bree Serif', serif" }}>
@@ -392,6 +562,7 @@ function HelpBox({ title, canonical, dict }) {
       <div className="text-sm text-slate-600 mb-4" style={{ fontFamily: "'Bree Serif', serif" }}>
         {t("helpText", "Message us on WhatsApp or email — we'll help you plan your trip.")}
       </div>
+
       <div className="flex flex-col gap-3">
         <a
           href={whatsappHref(title, canonical)}
@@ -412,6 +583,7 @@ function HelpBox({ title, canonical, dict }) {
           </div>
           <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#A3B117] group-hover:translate-x-1 transition-all" />
         </a>
+
         <a
           href={`mailto:${EMAIL_SALES}`}
           className="group bg-white rounded-xl border border-slate-200 p-3 hover:border-[#0086C0] hover:shadow-md transition-all duration-300 flex items-center gap-3"
@@ -454,39 +626,31 @@ export default async function PackageDetail({ params }) {
   const hasPromo = !!pkg.isPromoActive && typeof pkg.effectivePrice === "number";
   const priceOrig = Number(pkg.price || 0);
   const priceNow = hasPromo ? Number(pkg.effectivePrice || priceOrig) : priceOrig;
-  const discountPct =
-    hasPromo && priceOrig > 0 ? Math.round((1 - priceNow / priceOrig) * 100) : null;
+  const discountPct = hasPromo && priceOrig > 0 ? Math.round((1 - priceNow / priceOrig) * 100) : null;
 
-  const ctx = buildContextualMessage({
-    pkg,
-    hasPromo,
-    discountPct,
-    priceOrig,
-    priceNow,
-    currency,
-    dict,
-  });
+  const ctx = buildContextualMessage({ pkg, hasPromo, discountPct, priceOrig, priceNow, currency, dict });
   const related = await fetchRelated(pkg);
 
-  const hasPoint =
-    pkg?.location &&
-    typeof pkg.location.lat === "number" &&
-    typeof pkg.location.lng === "number";
-  const mapsHref = hasPoint
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-        `${pkg.location.lat},${pkg.location.lng}`
-      )}`
-    : null;
+  // Map links:
+  // 1) Prefer pkg.mapsUrl from backend (admin form field)
+  // 2) Otherwise fallback to coordinates
+  const hasPoint = pkg?.location && typeof pkg.location.lat === "number" && typeof pkg.location.lng === "number";
 
-  // JSON-LD
+  const mapsHref =
+    (typeof pkg.mapsUrl === "string" && pkg.mapsUrl.startsWith("http") && pkg.mapsUrl) ||
+    (hasPoint
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+          `${pkg.location.lat},${pkg.location.lng}`
+        )}`
+      : null);
+
+  // JSON-LD (Product + optional Tour/Trip-ish fields)
   const productLD = {
     "@context": "https://schema.org",
     "@type": "Product",
     name: pkg.title,
     description: pkg.description,
-    ...(pkg.media?.length
-      ? { image: pkg.media.filter((m) => m.type === "image").map((m) => m.url) }
-      : {}),
+    ...(pkg.media?.length ? { image: pkg.media.filter((m) => m.type === "image").map((m) => m.url) } : {}),
     brand: { "@type": "Brand", name: BRAND_NAME },
     offers: {
       "@type": "Offer",
@@ -497,30 +661,47 @@ export default async function PackageDetail({ params }) {
     },
   };
 
+  // Nice “quick facts” from new fields
+  const difficulty = pkg.difficulty || "";
+  const ageMin = Number.isFinite(Number(pkg.ageMin)) ? Number(pkg.ageMin) : null;
+  const minPeople = Number.isFinite(Number(pkg.minPeople)) ? Number(pkg.minPeople) : null;
+  const maxPeople = Number.isFinite(Number(pkg.maxPeople)) ? Number(pkg.maxPeople) : null;
+
+  const groupSizeHuman =
+    minPeople && maxPeople
+      ? `${minPeople}–${maxPeople}`
+      : maxPeople
+      ? `Up to ${maxPeople}`
+      : minPeople
+      ? `Min ${minPeople}`
+      : t("smallGroups", "Small groups");
+
+  const startTimes = Array.isArray(pkg.startTimes) ? pkg.startTimes : [];
+  const availableDays = Array.isArray(pkg.availableDays) ? pkg.availableDays : [];
+
+  const includes = Array.isArray(pkg.includes) ? pkg.includes : [];
+  const excludes = Array.isArray(pkg.excludes) ? pkg.excludes : [];
+  const whatToBring = Array.isArray(pkg.whatToBring) ? pkg.whatToBring : [];
+  const recommendations = Array.isArray(pkg.recommendations) ? pkg.recommendations : [];
+  const itinerary = Array.isArray(pkg.itinerary) ? pkg.itinerary : [];
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-white via-[#F8FAFC] to-white">
-      {/* JSON-LD for SEO */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productLD) }}
-      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productLD) }} />
 
       {/* Breadcrumbs */}
       <div className="bg-white border-b border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-2 text-sm text-slate-600" style={{ fontFamily: "'Bree Serif', serif" }}>
-            <Link 
-              href={`/${locale}`} 
-              className="hover:text-[#A3B117] transition-colors flex items-center gap-1"
-            >
+          <div
+            className="flex items-center gap-2 text-sm text-slate-600"
+            style={{ fontFamily: "'Bree Serif', serif" }}
+          >
+            <Link href={`/${locale}`} className="hover:text-[#A3B117] transition-colors flex items-center gap-1">
               <ArrowLeft className="w-3 h-3" />
               {tr(dict, "NavBar.home", "Home")}
             </Link>
             <ChevronRight className="w-3 h-3 text-slate-400" />
-            <Link 
-              href={`/${locale}/packages`} 
-              className="hover:text-[#A3B117] transition-colors"
-            >
+            <Link href={`/${locale}/packages`} className="hover:text-[#A3B117] transition-colors">
               {tr(dict, "NavBar.packages", "Packages")}
             </Link>
             <ChevronRight className="w-3 h-3 text-slate-400" />
@@ -544,28 +725,67 @@ export default async function PackageDetail({ params }) {
             />
           </div>
 
-          {/* Package Header */}
+          {/* Header */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="px-3 py-1 bg-gradient-to-r from-[#0086C0]/10 to-[#0E374A]/10 rounded-full text-xs font-bold text-[#0086C0]" style={{ fontFamily: "'Bree Serif', serif" }}>
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <span
+                    className="px-3 py-1 bg-gradient-to-r from-[#0086C0]/10 to-[#0E374A]/10 rounded-full text-xs font-bold text-[#0086C0]"
+                    style={{ fontFamily: "'Bree Serif', serif" }}
+                  >
                     {pkg.category || t("category", "Adventure")}
                   </span>
-                  {hasPromo && discountPct && (
-                    <span className="px-3 py-1 bg-red-600 rounded-full text-xs font-bold text-white border border-amber-200 flex items-center gap-1">
-                      <Tag className="w-3 h-3" />
-                      -{discountPct}% OFF
+
+                  {difficulty ? (
+                    <span
+                      className="px-3 py-1 bg-slate-50 border border-slate-200 rounded-full text-xs font-bold text-slate-700"
+                      style={{ fontFamily: "'Bree Serif', serif" }}
+                    >
+                      {t("difficulty", "Difficulty")}: {difficulty}
                     </span>
-                  )}
+                  ) : null}
+
+                  {hasPromo && discountPct ? (
+                    <span className="px-3 py-1 bg-red-600 rounded-full text-xs font-bold text-white border border-amber-200 flex items-center gap-1">
+                      <Tag className="w-3 h-3" />-{discountPct}% OFF
+                    </span>
+                  ) : null}
                 </div>
-                <h1 className="text-3xl md:text-4xl font-black text-[#0E374A] leading-tight" style={{ fontFamily: "'Bree Serif', serif" }}>
+
+                <h1
+                  className="text-3xl md:text-4xl font-black text-[#0E374A] leading-tight"
+                  style={{ fontFamily: "'Bree Serif', serif" }}
+                >
                   {pkg.title}
                 </h1>
+
+                {pkg.city || pkg.country ? (
+                  <div
+                    className="mt-2 text-sm text-slate-600 flex flex-wrap items-center gap-2"
+                    style={{ fontFamily: "'Bree Serif', serif" }}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      <MapPin className="w-4 h-4 text-slate-500" />
+                      {[pkg.city, pkg.country].filter(Boolean).join(", ")}
+                    </span>
+                    {mapsHref ? (
+                      <a
+                        href={mapsHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[#0086C0] hover:text-[#0E374A] underline font-bold"
+                      >
+                        <Navigation className="w-4 h-4" />
+                        {t("openInMaps", "Open in Maps")}
+                      </a>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             </div>
 
-            {/* Context message - Versión más sutil para ofertas */}
+            {/* Context message */}
             {hasPromo && discountPct ? (
               <div className="rounded-2xl mb-6 border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50">
                 <div className="p-5">
@@ -576,27 +796,32 @@ export default async function PackageDetail({ params }) {
                       </div>
                       <div>
                         <div className="font-bold text-amber-700 text-sm" style={{ fontFamily: "'Bree Serif', serif" }}>
-                          {tr(dict, "PackageDetail.dealTitle", `Limited-time deal: save ${discountPct}%`).replace("{pct}", String(discountPct))}
+                          {tr(dict, "PackageDetail.dealTitle", `Limited-time deal: save ${discountPct}%`).replace(
+                            "{pct}",
+                            String(discountPct)
+                          )}
                         </div>
                         <div className="text-slate-600 text-xs mt-1">
-                          Now {money(priceNow, currency)} (was {money(priceOrig, currency)}). Daily departures, {Array.isArray(pkg.languages) && pkg.languages.length ? pkg.languages.join(", ") : "Spanish / English"}.
+                          Now {money(priceNow, currency)} (was {money(priceOrig, currency)}).{" "}
+                          {startTimes?.length
+                            ? `Start times: ${startTimes.slice(0, 3).join(", ")}.`
+                            : "Daily departures."}
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="text-slate-500 text-sm line-through">
-                        {money(priceOrig, currency)}
-                      </div>
-                      <div className="font-bold text-lg text-[#0086C0]">
-                        {money(priceNow, currency)}
-                      </div>
+                      <div className="text-slate-500 text-sm line-through">{money(priceOrig, currency)}</div>
+                      <div className="font-bold text-lg text-[#0086C0]">{money(priceNow, currency)}</div>
                     </div>
                   </div>
                 </div>
               </div>
             ) : (
               <div className="rounded-2xl p-5 mb-6 bg-gradient-to-r from-blue-50 to-slate-50 border border-slate-200">
-                <div className="font-bold text-[#0E374A] mb-2 flex items-center gap-2" style={{ fontFamily: "'Bree Serif', serif" }}>
+                <div
+                  className="font-bold text-[#0E374A] mb-2 flex items-center gap-2"
+                  style={{ fontFamily: "'Bree Serif', serif" }}
+                >
                   <div className="p-1 rounded-lg bg-gradient-to-br from-[#0086C0]/20 to-[#0E374A]/10">
                     <Info className="w-4 h-4 text-[#0086C0]" />
                   </div>
@@ -609,12 +834,53 @@ export default async function PackageDetail({ params }) {
             )}
           </div>
 
-          {/* Description */}
-          {pkg.description && (
+          {/* Key Facts Grid */}
+          <div className="mb-8">
+            <h2 className="text-xl font-bold text-[#0E374A] mb-4" style={{ fontFamily: "'Bree Serif', serif" }}>
+              {t("keyDetails", "Key Details")}
+            </h2>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <FactCard icon={Clock} label={t("duration", "Duration")} value={`${pkg.durationHours || 8}h`} />
+              <FactCard icon={Users} label={t("groupSize", "Group size")} value={groupSizeHuman} />
+              <FactCard
+                icon={Globe}
+                label={t("languages", "Languages")}
+                value={
+                  Array.isArray(pkg.languages) && pkg.languages.length ? pkg.languages.slice(0, 3).join(", ") : "ES/EN"
+                }
+              />
+              <FactCard
+                icon={Calendar}
+                label={t("availability", "Availability")}
+                value={
+                  availableDays.length
+                    ? availableDays.slice(0, 3).join(", ") + (availableDays.length > 3 ? "…" : "")
+                    : t("askDates", "Ask for dates")
+                }
+              />
+            </div>
+
+            {(ageMin || difficulty || startTimes.length) && (
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                {ageMin ? <FactCard icon={AlertTriangle} label={t("minAge", "Minimum age")} value={`${ageMin}+`} /> : null}
+                {difficulty ? <FactCard icon={Sparkles} label={t("difficulty", "Difficulty")} value={difficulty} /> : null}
+                {startTimes.length ? (
+                  <FactCard icon={Calendar} label={t("startTimes", "Start times")} value={startTimes.slice(0, 2).join(" • ")} />
+                ) : null}
+              </div>
+            )}
+          </div>
+
+          {/* Overview / Description */}
+          {pkg.description ? (
             <div className="mb-8">
-              <h2 className="text-xl font-bold text-[#0E374A] mb-4 flex items-center gap-2" style={{ fontFamily: "'Bree Serif', serif" }}>
+              <h2
+                className="text-xl font-bold text-[#0E374A] mb-4 flex items-center gap-2"
+                style={{ fontFamily: "'Bree Serif', serif" }}
+              >
                 <div className="p-1 rounded-lg bg-gradient-to-br from-[#0086C0]/10 to-[#0E374A]/5">
-                  <Calendar className="w-5 h-5 text-[#0086C0]" />
+                  <Info className="w-5 h-5 text-[#0086C0]" />
                 </div>
                 {t("overview", "Overview")}
               </h2>
@@ -624,67 +890,79 @@ export default async function PackageDetail({ params }) {
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
 
-          {/* Key Facts Grid */}
+          {/* Itinerary */}
           <div className="mb-8">
-            <h2 className="text-xl font-bold text-[#0E374A] mb-4" style={{ fontFamily: "'Bree Serif', serif" }}>
-              {t("keyDetails", "Key Details")}
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <FactCard 
-                icon={MapPin} 
-                label={t("location", "Location")} 
-                value={pkg.city || "—"}
-              />
-              <FactCard 
-                icon={Clock} 
-                label={t("duration", "Duration")} 
-                value={`${pkg.durationHours || 8}h`}
-              />
-              <FactCard 
-                icon={Users} 
-                label={t("groupSize", "Group Size")} 
-                value={pkg.groupSize || "Small groups"}
-              />
-              <FactCard 
-                icon={Globe} 
-                label={t("languages", "Languages")} 
-                value={
-                  Array.isArray(pkg.languages) && pkg.languages.length
-                    ? pkg.languages.slice(0, 2).join(", ")
-                    : "ES/EN"
-                }
-              />
-            </div>
+            <Itinerary dict={dict} itinerary={itinerary} mapsUrl={mapsHref} />
           </div>
 
-          {/* Includes & Excludes */}
-          <div className="mb-8">
-            <h2 className="text-xl font-bold text-[#0E374A] mb-4" style={{ fontFamily: "'Bree Serif', serif" }}>
-              {t("whatsIncluded", "What's Included")}
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {pkg.includes?.length > 0 && (
-                <FactList 
-                  title={t("includes", "Includes")} 
-                  items={pkg.includes}
-                  type="includes"
-                />
-              )}
-              {pkg.excludes?.length > 0 && (
-                <FactList 
-                  title={t("notIncludes", "Not included")} 
-                  items={pkg.excludes}
-                  type="excludes"
-                />
-              )}
+          {/* Includes / Excludes */}
+          {(includes.length || excludes.length) ? (
+            <div className="mb-8">
+              <h2 className="text-xl font-bold text-[#0E374A] mb-4" style={{ fontFamily: "'Bree Serif', serif" }}>
+                {t("whatsIncluded", "What's Included")}
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {includes.length ? <FactList title={t("includes", "Includes")} items={includes} type="includes" /> : null}
+                {excludes.length ? <FactList title={t("notIncludes", "Not included")} items={excludes} type="excludes" /> : null}
+              </div>
             </div>
-          </div>
+          ) : null}
 
-          {/* Share & Map */}
+          {/* What to bring + Recommendations */}
+          {(whatToBring.length || recommendations.length) ? (
+            <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Chips icon={Backpack} label={t("whatToBring", "What to bring")} items={whatToBring} />
+              <Chips icon={Sparkles} label={t("recommendations", "Recommendations")} items={recommendations} />
+            </div>
+          ) : null}
+
+          {/* Meeting / Dropoff points */}
+          {(pkg.meetingPoint || pkg.dropoffPoint) ? (
+            <div className="mb-8">
+              <div className="bg-white rounded-2xl border border-slate-100 p-6 hover:shadow-md transition-all duration-300">
+                <h3
+                  className="font-bold text-[#0E374A] mb-4 flex items-center gap-2"
+                  style={{ fontFamily: "'Bree Serif', serif" }}
+                >
+                  <div className="p-1 rounded-lg bg-gradient-to-br from-[#0086C0]/10 to-[#0E374A]/5">
+                    <MapPin className="w-5 h-5 text-[#0086C0]" />
+                  </div>
+                  {t("meetingInfo", "Meeting & drop-off")}
+                </h3>
+                <div className="text-sm text-slate-700 space-y-2" style={{ fontFamily: "'Bree Serif', serif" }}>
+                  {pkg.meetingPoint ? (
+                    <div>
+                      <span className="font-bold text-slate-900">{t("meetingPoint", "Meeting point")}:</span>{" "}
+                      {pkg.meetingPoint}
+                    </div>
+                  ) : null}
+                  {pkg.dropoffPoint ? (
+                    <div>
+                      <span className="font-bold text-slate-900">{t("dropoffPoint", "Drop-off")}:</span>{" "}
+                      {pkg.dropoffPoint}
+                    </div>
+                  ) : null}
+                  {mapsHref ? (
+                    <a
+                      href={mapsHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[#0086C0] hover:text-[#0E374A] underline font-bold"
+                    >
+                      <Navigation className="w-4 h-4" />
+                      {t("openInMaps", "Open in Maps")}
+                    </a>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {/* Share + Map */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-12">
-            {share && (
+            {share ? (
               <div className="flex items-center gap-3">
                 <div className="text-slate-700 font-medium" style={{ fontFamily: "'Bree Serif', serif" }}>
                   {t("share", "Share")}:
@@ -699,6 +977,19 @@ export default async function PackageDetail({ params }) {
                   >
                     <MessageCircle className="w-4 h-4 text-slate-600" />
                   </a>
+
+                  <a
+                    href={share.tg}
+                    className="p-2 rounded-full bg-gradient-to-br from-[#0086C0]/10 to-[#0E374A]/5 border border-slate-200 hover:border-[#0086C0] hover:shadow-md transition-all duration-300"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Telegram"
+                  >
+                    <svg className="w-4 h-4 text-slate-600" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M9.993 15.496 9.63 20.62c.52 0 .744-.224 1.013-.493l2.43-2.32 5.03 3.68c.922.51 1.573.242 1.82-.85L23.93 4.77c.32-1.34-.484-1.94-1.38-1.61L1.36 11.29c-1.31.51-1.29 1.24-.24 1.57l5.57 1.74L19.64 6.9c.61-.4 1.17-.18.71.23" />
+                    </svg>
+                  </a>
+
                   <a
                     href={share.fb}
                     className="p-2 rounded-full bg-gradient-to-br from-[#0086C0]/10 to-[#0E374A]/5 border border-slate-200 hover:border-[#0086C0] hover:shadow-md transition-all duration-300"
@@ -706,15 +997,15 @@ export default async function PackageDetail({ params }) {
                     rel="noopener noreferrer"
                     title="Facebook"
                   >
-                    <svg className="w-4 h-4 text-slate-600" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                    <svg className="w-4 h-4 text-slate-600" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
                     </svg>
                   </a>
                 </div>
               </div>
-            )}
-            
-            {mapsHref && (
+            ) : null}
+
+            {mapsHref ? (
               <a
                 href={mapsHref}
                 className="group flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#0086C0] to-[#0E374A] text-white rounded-full font-bold hover:shadow-lg hover:scale-105 transition-all duration-300"
@@ -722,12 +1013,10 @@ export default async function PackageDetail({ params }) {
                 rel="noopener noreferrer"
               >
                 <MapPin className="w-4 h-4" />
-                <span style={{ fontFamily: "'Bree Serif', serif" }}>
-                  {t("openInMaps", "Open in Maps")}
-                </span>
+                <span style={{ fontFamily: "'Bree Serif', serif" }}>{t("openInMaps", "Open in Maps")}</span>
                 <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </a>
-            )}
+            ) : null}
           </div>
         </article>
 
@@ -749,7 +1038,7 @@ export default async function PackageDetail({ params }) {
       </section>
 
       {/* ---------- Related Experiences ---------- */}
-      {related.length > 0 && (
+      {related.length > 0 ? (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
           <div className="border-t border-slate-200 pt-12">
             <div className="flex items-center justify-between mb-8">
@@ -761,7 +1050,7 @@ export default async function PackageDetail({ params }) {
                   {t("moreOptions", "You might also like these options")}
                 </div>
               </div>
-              <Link 
+              <Link
                 href={`/${locale}/packages`}
                 className="group flex items-center gap-2 text-[#0086C0] hover:text-[#0E374A] transition-colors font-bold"
                 style={{ fontFamily: "'Bree Serif', serif" }}
@@ -770,13 +1059,16 @@ export default async function PackageDetail({ params }) {
                 <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </Link>
             </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               {related.map((p) => {
-                const img = mediaUrl(p.media?.[0]?.url) || "https://picsum.photos/600/400";
+                // p.media already normalized in fetchRelated, but keep safe
+                const img =
+                  (Array.isArray(p.media) && p.media.length ? p.media[0]?.url : "") || "https://picsum.photos/600/400";
                 const rHasPromo = !!p.isPromoActive && typeof p.effectivePrice === "number";
                 const cur = (p.currency || "PEN").toUpperCase();
                 const rPrice = money(rHasPromo ? p.effectivePrice : p.price, cur);
-                
+
                 return (
                   <Link
                     key={p.slug}
@@ -789,18 +1081,22 @@ export default async function PackageDetail({ params }) {
                         alt={p.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
-                      {p.city && (
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                      {p.city ? (
                         <div className="absolute top-3 left-3 px-2.5 py-1 bg-black/60 backdrop-blur-sm rounded-full">
                           <div className="text-xs text-white flex items-center gap-1" style={{ fontFamily: "'Bree Serif', serif" }}>
                             <MapPin className="w-3 h-3" />
                             {p.city}
                           </div>
                         </div>
-                      )}
+                      ) : null}
                     </div>
+
                     <div className="p-4">
-                      <div className="font-bold text-[#0E374A] line-clamp-2 mb-2 group-hover:text-[#0086C0] transition-colors" style={{ fontFamily: "'Bree Serif', serif" }}>
+                      <div
+                        className="font-bold text-[#0E374A] line-clamp-2 mb-2 group-hover:text-[#0086C0] transition-colors"
+                        style={{ fontFamily: "'Bree Serif', serif" }}
+                      >
                         {p.title}
                       </div>
                       <div className="flex items-center justify-between">
@@ -819,7 +1115,7 @@ export default async function PackageDetail({ params }) {
             </div>
           </div>
         </section>
-      )}
+      ) : null}
     </main>
   );
 }

@@ -1,4 +1,4 @@
-//frontend/app/admin/packages/new/NewPackageInner.jsx
+// frontend/app/admin/packages/new/NewPackageInner.jsx
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -6,12 +6,15 @@ import Link from 'next/link';
 import AdminGuard from '@/app/admin/AdminGuard';
 import PackageForm from '../_form';
 
+// Must match PackagesInner.jsx
+const FLASH_KEY = 'pkg_created_flash';
+
 export default function NewPackageInner() {
   const router = useRouter();
 
   return (
     <AdminGuard>
-      <section className="container-default py-20 ">
+      <section className="container-default py-20">
         {/* Breadcrumbs + quick actions */}
         <div className="flex items-center justify-between gap-3 mb-4 text-sm">
           <div className="flex items-center gap-2 text-slate-600">
@@ -30,9 +33,21 @@ export default function NewPackageInner() {
 
         <PackageForm
           onSaved={(doc) => {
-            const id = doc?._id || doc?.id;
-            if (id) router.replace(`/admin/packages/${id}/edit`);
-            else router.replace('/admin/packages');
+            // Store a one-time "congrats" flash and go back to list
+            try {
+              const payload = {
+                t: Date.now(),
+                id: doc?._id || doc?.id || '',
+                title: doc?.title || 'Package created successfully!',
+                slug: doc?.slug || '',
+              };
+              sessionStorage.setItem(FLASH_KEY, JSON.stringify(payload));
+            } catch {
+              // ignore storage errors (private mode, etc.)
+            }
+
+            // Show the banner in /admin/packages (PackagesInner.jsx)
+            router.push('/admin/packages?created=1');
           }}
         />
       </section>

@@ -1,11 +1,13 @@
-// frontend/app/admin/AdminGuard.jsx
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { API_BASE } from '@/app/lib/config';
 
 /* ------------------ Helpers ------------------ */
+const stripApiSuffix = (s = '') =>
+  String(s || '').replace(/\/+$/, '').replace(/\/api\/?$/i, '');
+
 function base64UrlDecode(str) {
   try {
     const pad = (s) => s + '==='.slice((s.length + 3) % 4);
@@ -45,7 +47,7 @@ export default function AdminGuard({
   requiredRole = 'admin',
   redirectTo = '/admin/login',
   refreshThresholdMs = 60_000, // refresh if expiring in 60s
-  clockToleranceMs = 5_000,   // skew tolerance
+  clockToleranceMs = 5_000, // skew tolerance
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -54,6 +56,8 @@ export default function AdminGuard({
   const [checking, setChecking] = useState(true);
   const [ok, setOk] = useState(false);
   const redirectedRef = useRef(false);
+
+  const apiHost = useMemo(() => stripApiSuffix(API_BASE || ''), []);
 
   const getToken = useCallback(() => {
     try {
@@ -73,112 +77,168 @@ export default function AdminGuard({
   const goLogin = useCallback(() => {
     if (redirectedRef.current) return;
     redirectedRef.current = true;
+
     const qs = searchParams?.toString();
     const nextUrl = pathname + (qs ? `?${qs}` : '');
     router.replace(`${redirectTo}?next=${encodeURIComponent(nextUrl)}`);
   }, [router, pathname, searchParams, redirectTo]);
 
   const tryRefresh = useCallback(async () => {
+    // Requires backend refresh cookie to exist (credentials include)
     try {
-      const res = await fetch(`${API_BASE}/api/auth/refresh`, {
+      const res = await fetch(`${apiHost}/api/auth/refresh`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
       });
-      if (!res.ok) return null;
+
+      if (!res.ok) return { token: null, hardFail: res.status === 401 || res.status === 403 };
       const data = await res.json().catch(() => ({}));
-      return data?.token || null;
+      return { token: data?.token || null, hardFail: false };
     } catch {
-      return null;
+      // network/cors/down: not a "hard" auth failure
+      return { token: null, hardFail: false };
     }
-  }, []);
+  }, [apiHost]);
 
-  useEffect(() => {
-    let alive = true;
+  const checkOnce = useCallback(async () => {
+    setChecking(true);
+    setOk(false);
 
-    async function check() {
-      setChecking(true);
-      setOk(false);
+    const token = getToken();
+    if (!token) {
+      goLogin();
+      return;
+    }
 
-      const token = getToken();
-      if (!token) {
-        goLogin();
-        return;
-      }
+    const payload = parseJwt(token);
+    if (!payload) {
+      setToken(null);
+      goLogin();
+      return;
+    }
 
-      const payload = parseJwt(token);
-      if (!payload) {
-        setToken(null);
-        goLogin();
-        return;
-      }
+    const now = Date.now();
+    const expMs = typeof payload.exp === 'number' ? payload.exp * 1000 : 0;
+    const nbfMs = typeof payload.nbf === 'number' ? payload.nbf * 1000 : 0;
 
-      const now = Date.now();
-      const expMs = typeof payload.exp === 'number' ? payload.exp * 1000 : 0;
-      const nbfMs = typeof payload.nbf === 'number' ? payload.nbf * 1000 : 0;
+    // Not before check
+    if (nbfMs && now + clockToleranceMs < nbfMs) {
+      setToken(null);
+      goLogin();
+      return;
+    }
 
-      // Not before check
-      if (nbfMs && now + clockToleranceMs < nbfMs) {
-        setToken(null);
-        goLogin();
-        return;
-      }
+    // Role check helper
+    const roleFrom = (p) => p?.role || (Array.isArray(p?.roles) ? p.roles[0] : undefined);
 
-      // Refresh if expired / expiring
-      if (!expMs || now >= expMs - refreshThresholdMs) {
-        const refreshed = await tryRefresh();
-        if (!alive) return;
-        if (refreshed) {
-          setToken(refreshed);
-          const p2 = parseJwt(refreshed);
-          if (!p2) {
-            setToken(null);
-            goLogin();
-            return;
-          }
-          const role = p2.role || (Array.isArray(p2.roles) ? p2.roles[0] : undefined);
-          if (!roleSatisfies(role, requiredRole)) {
-            goLogin();
-            return;
-          }
-          setOk(true);
-          setChecking(false);
-          return;
-        } else {
+    // If token has no exp, treat it as invalid -> force refresh/login
+    const tokenHasExp = !!expMs;
+    const tokenExpired = tokenHasExp ? now >= expMs : true;
+    const expiringSoon = tokenHasExp ? now >= expMs - refreshThresholdMs : true;
+
+    // Refresh if expired or expiring soon
+    if (tokenExpired || expiringSoon) {
+      const { token: refreshed, hardFail } = await tryRefresh();
+
+      if (refreshed) {
+        setToken(refreshed);
+        const p2 = parseJwt(refreshed);
+        if (!p2) {
           setToken(null);
           goLogin();
           return;
         }
+        const role2 = roleFrom(p2);
+        if (!roleSatisfies(role2, requiredRole)) {
+          goLogin();
+          return;
+        }
+        setOk(true);
+        setChecking(false);
+        return;
       }
 
-      // Role check
-      const role = payload.role || (Array.isArray(payload.roles) ? payload.roles[0] : undefined);
-      if (!roleSatisfies(role, requiredRole)) {
+      // If backend explicitly says not authorized -> logout
+      if (hardFail) {
+        setToken(null);
         goLogin();
         return;
       }
 
-      if (alive) {
+      // Otherwise: refresh failed due to network/etc.
+      // If token is still valid (only expiringSoon), allow user to stay.
+      if (!tokenExpired) {
+        const role = roleFrom(payload);
+        if (!roleSatisfies(role, requiredRole)) {
+          goLogin();
+          return;
+        }
         setOk(true);
         setChecking(false);
+        return;
       }
+
+      // Token actually expired and we couldn't refresh -> logout
+      setToken(null);
+      goLogin();
+      return;
     }
 
-    check();
+    // Token valid: Role check
+    const role = roleFrom(payload);
+    if (!roleSatisfies(role, requiredRole)) {
+      goLogin();
+      return;
+    }
+
+    setOk(true);
+    setChecking(false);
+  }, [
+    getToken,
+    setToken,
+    goLogin,
+    tryRefresh,
+    requiredRole,
+    refreshThresholdMs,
+    clockToleranceMs,
+  ]);
+
+  useEffect(() => {
+    let alive = true;
+
+    const run = async () => {
+      redirectedRef.current = false;
+      await checkOnce();
+    };
+
+    run();
 
     const onStorage = (e) => {
+      if (!alive) return;
       if (e.key === 'token') {
         redirectedRef.current = false;
-        check();
+        checkOnce();
       }
     };
+
+    const onFocus = () => {
+      if (!alive) return;
+      redirectedRef.current = false;
+      checkOnce();
+    };
+
     window.addEventListener('storage', onStorage);
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
 
     return () => {
       alive = false;
       window.removeEventListener('storage', onStorage);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
     };
-  }, [getToken, setToken, goLogin, tryRefresh, requiredRole, refreshThresholdMs, clockToleranceMs]);
+  }, [checkOnce]);
 
   /* ------------------ UI ------------------ */
   if (checking) {
