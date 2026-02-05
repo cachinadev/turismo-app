@@ -5,8 +5,9 @@ import BookingForm from "@/app/components/BookingForm";
 import { notFound } from "next/navigation";
 import { mediaUrl } from "@/app/lib/media";
 import Link from "next/link";
-import { API_BASE, SITE_URL } from "@/app/lib/config";
+import { API_BASE, SITE_URL, CONTACT_PHONE, WHATSAPP_NUMBER } from "@/app/lib/config";
 import MediaCarousel from "@/app/components/MediaCarousel";
+import { trackEvent } from "@/app/lib/analytics";
 
 /* -------------------------------------------------------
  * 🧊 Disable caching so locale strings always match UI
@@ -17,8 +18,9 @@ export const revalidate = 0;
 /* ---------- Branding & Contact ---------- */
 const BRAND_NAME = process.env.NEXT_PUBLIC_BRAND_NAME || "Vicuña Adventures";
 const EMAIL_SALES = process.env.NEXT_PUBLIC_EMAIL_SALES || "contact@vicuadvent.com";
-const PHONE = process.env.NEXT_PUBLIC_PHONE || "+51 953858267";
-const WA_NUMBER = (PHONE.match(/\d+/g) || []).join("") || "51953858267";
+const WA_NUMBER =
+  (String(WHATSAPP_NUMBER || CONTACT_PHONE).match(/\d+/g) || []).join("") ||
+  "51953858267";
 
 /* ---------- i18n helpers ---------- */
 const SUPPORTED = ["es", "en", "fr", "pt", "ru"];
@@ -349,6 +351,12 @@ export default async function PackageDetail({ params }) {
                   className="btn btn-ghost btn-sm"
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() =>
+                    trackEvent("cta_whatsapp_click", {
+                      source: "package_context",
+                      packageSlug: canonical?.split("/").pop() || "",
+                    })
+                  }
                 >
                   {tr(dict, "PackageDetail.chat", "WhatsApp")}
                 </a>
@@ -430,6 +438,12 @@ export default async function PackageDetail({ params }) {
                   className="btn btn-ghost btn-sm"
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() =>
+                    trackEvent("cta_whatsapp_click", {
+                      source: "package_share",
+                      packageSlug: canonical?.split("/").pop() || "",
+                    })
+                  }
                 >
                   WhatsApp
                 </a>
@@ -438,6 +452,12 @@ export default async function PackageDetail({ params }) {
                   className="btn btn-ghost btn-sm"
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() =>
+                    trackEvent("share_facebook_click", {
+                      source: "package_share",
+                      packageSlug: canonical?.split("/").pop() || "",
+                    })
+                  }
                 >
                   Facebook
                 </a>
@@ -446,6 +466,12 @@ export default async function PackageDetail({ params }) {
                   className="btn btn-ghost btn-sm"
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() =>
+                    trackEvent("share_twitter_click", {
+                      source: "package_share",
+                      packageSlug: canonical?.split("/").pop() || "",
+                    })
+                  }
                 >
                   Twitter/X
                 </a>
@@ -592,6 +618,12 @@ function HelpBox({ title, canonical, dict }) {
           target="_blank"
           rel="noopener noreferrer"
           className="btn btn-ghost btn-sm"
+          onClick={() =>
+            trackEvent("cta_whatsapp_click", {
+              source: "package_help_box",
+              packageSlug: canonical?.split("/").pop() || "",
+            })
+          }
         >
           {t("chat", "Chat on WhatsApp")}
         </a>

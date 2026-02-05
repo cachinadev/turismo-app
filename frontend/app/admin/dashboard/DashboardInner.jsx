@@ -6,21 +6,13 @@ import { useRouter } from "next/navigation";
 import AdminGuard from "../AdminGuard";
 import { API_BASE } from "@/app/lib/config";
 import { mediaUrl } from "@/app/lib/media";
+import { useAdminI18n } from "../i18n/AdminI18nProvider";
 
 /* ===================== Branding ===================== */
 const COMPANY_NAME = process.env.NEXT_PUBLIC_COMPANY_NAME || "Vicuña Adventures";
 const COMPANY_LOGO = process.env.NEXT_PUBLIC_COMPANY_LOGO || "";
 
 /* ===================== Constants ===================== */
-const BOOKING_STATUSES = ["Pendiente", "En proceso", "Finalizado", "Cancelado"];
-const BOOKING_SORTS = [
-  { v: "created_desc", label: "Creación ↓" },
-  { v: "created_asc", label: "Creación ↑" },
-  { v: "date_desc", label: "Fecha tour ↓" },
-  { v: "date_asc", label: "Fecha tour ↑" },
-  { v: "total_desc", label: "Total ↓" },
-  { v: "total_asc", label: "Total ↑" },
-];
 
 /* ===================== URL helpers ===================== */
 const stripApiSuffix = (s = "") => String(s || "").replace(/\/+$/, "").replace(/\/api\/?$/i, "");
@@ -48,19 +40,6 @@ const fmtDT = (d, locale = "es-PE") =>
   d ? new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(d) : "—";
 
 const parseList = (j) => (Array.isArray(j) ? j : j?.items || []);
-
-const currencyHuman = (c) => {
-  switch ((c || "").toUpperCase()) {
-    case "PEN":
-      return "soles (PEN)";
-    case "USD":
-      return "dólares (USD)";
-    case "EUR":
-      return "euros (EUR)";
-    default:
-      return (c || "").toUpperCase();
-  }
-};
 
 const normalizePhone = (p) => String(p || "").replace(/[^\d]/g, "");
 const buildWa = (phone, text = "") => {
@@ -141,13 +120,38 @@ function triggerDownloadFromBlob(blob, filename) {
 /* ===================== Component ===================== */
 export default function DashboardInner() {
   const router = useRouter();
+  const { t, lang } = useAdminI18n();
+  const locale = lang === "en" ? "en-US" : "es-PE";
+
+  const BOOKING_STATUSES = useMemo(
+    () => [
+      { value: "Pendiente", label: t("status.pending", "Pending") },
+      { value: "En proceso", label: t("status.inProgress", "In progress") },
+      { value: "Finalizado", label: t("status.finalized", "Finalized") },
+      { value: "Cancelado", label: t("status.cancelled", "Cancelled") },
+    ],
+    [t]
+  );
+
+  const BOOKING_SORTS = useMemo(
+    () => [
+      { v: "created_desc", label: t("sort.createdDesc", "Created ↓") },
+      { v: "created_asc", label: t("sort.createdAsc", "Created ↑") },
+      { v: "date_desc", label: t("sort.dateDesc", "Tour date ↓") },
+      { v: "date_asc", label: t("sort.dateAsc", "Tour date ↑") },
+      { v: "total_desc", label: t("sort.totalDesc", "Total ↓") },
+      { v: "total_asc", label: t("sort.totalAsc", "Total ↑") },
+    ],
+    [t]
+  );
 
   /* ===== UI Tabs ===== */
-  const [tab, setTab] = useState("bookings"); // bookings | packages | events
+  const [tab, setTab] = useState("bookings"); // bookings | packages | testimonials | events
 
   /* ===== Data ===== */
   const [packages, setPackages] = useState([]);
   const [events, setEvents] = useState([]);
+  const [testimonials, setTestimonials] = useState([]);
   const [bookingsResp, setBookingsResp] = useState({ page: 1, limit: 30, total: 0, pages: 1, items: [] });
   const [stats, setStats] = useState(null);
 
@@ -157,6 +161,7 @@ export default function DashboardInner() {
   const [loadingStats, setLoadingStats] = useState(true);
   const [loadingPackages, setLoadingPackages] = useState(true);
   const [loadingEvents, setLoadingEvents] = useState(true);
+  const [loadingTestimonials, setLoadingTestimonials] = useState(true);
 
   /* ===== UI State ===== */
   const [err, setErr] = useState("");
@@ -176,16 +181,43 @@ export default function DashboardInner() {
   const [pQ, setPQ] = useState("");
   const [pOnlyPromo, setPOnlyPromo] = useState(false);
 
+  /* ===== Filters (Events) ===== */
+  const [eType, setEType] = useState("");
+  const [eSource, setESource] = useState("");
+  const [eFrom, setEFrom] = useState("");
+  const [eTo, setETo] = useState("");
+
+  /* ===== Filters (Testimonials) ===== */
+  const [tStatus, setTStatus] = useState("pending");
+  const [tQ, setTQ] = useState("");
+
   /* ===== Selection (Bookings) ===== */
   const [selectedIds, setSelectedIds] = useState(() => new Set());
 
   /* ===== UX ===== */
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [deletingPkgId, setDeletingPkgId] = useState(null);
+  const [lastCopiedKey, setLastCopiedKey] = useState("");
 
   /* ===== Refs ===== */
   const toastRef = useRef(null);
   const abortRef = useRef({}); // { bookings, stats, packages, events }
+
+  const currencyLabel = useCallback(
+    (c) => {
+      switch ((c || "").toUpperCase()) {
+        case "PEN":
+          return t("currency.pen", "soles (PEN)");
+        case "USD":
+          return t("currency.usd", "dollars (USD)");
+        case "EUR":
+          return t("currency.eur", "euros (EUR)");
+        default:
+          return (c || "").toUpperCase();
+      }
+    },
+    [t]
+  );
 
   /* ===================== Small utilities ===================== */
   const showToast = useCallback((msg, type = "info") => {
@@ -216,22 +248,29 @@ export default function DashboardInner() {
   }, []);
 
   const handle401 = useCallback(() => {
-    setErr("Sesión expirada. Vuelve a iniciar sesión.");
+    setErr(t("errors.sessionExpired", "Session expired. Please sign in again."));
     try {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
     } catch {}
     router.push("/admin/login");
-  }, [router]);
+  }, [router, t]);
 
   const handleLogout = useCallback(() => {
-    if (!confirm("¿Estás seguro de que quieres cerrar sesión?")) return;
+    if (!confirm(t("confirm.signOut", "Are you sure you want to sign out?"))) return;
+    const token = getToken();
+    if (token) {
+      fetch(api("auth/logout"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
+    }
     try {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
     } catch {}
     router.push("/admin/login");
-  }, [router]);
+  }, [router, t]);
 
   /* ===================== Online indicator ===================== */
   useEffect(() => {
@@ -247,6 +286,9 @@ export default function DashboardInner() {
 
   /* ===================== Fetchers ===================== */
   const bQDebounced = useDebouncedValue(bQ, 350);
+  const eTypeDebounced = useDebouncedValue(eType, 350);
+  const eSourceDebounced = useDebouncedValue(eSource, 350);
+  const tQDebounced = useDebouncedValue(tQ, 350);
 
   const buildBookingsUrl = useCallback(() => {
     const qs = new URLSearchParams();
@@ -277,8 +319,8 @@ export default function DashboardInner() {
       if (res.status === 401) return handle401();
       setErr(
         res.networkError
-          ? "Error de conexión con el backend. Revisa URL/CORS/red."
-          : res.json?.message || "No se pudo cargar reservas."
+          ? t("errors.connection", "Connection error with backend. Check URL/CORS/network.")
+          : res.json?.message || t("errors.loadBookings", "Could not load bookings.")
       );
       setBookingsResp((p) => ({ ...p, items: [], total: 0, pages: 1 }));
       setLoadingBookings(false);
@@ -308,7 +350,7 @@ export default function DashboardInner() {
     });
 
     setLoadingBookings(false);
-  }, [abortKey, authHeaders, bLimit, bPage, buildBookingsUrl, getToken, handle401]);
+  }, [abortKey, authHeaders, bLimit, bPage, buildBookingsUrl, getToken, handle401, t]);
 
   const fetchStats = useCallback(async () => {
     setLoadingStats(true);
@@ -368,7 +410,14 @@ export default function DashboardInner() {
       return;
     }
 
-    const res = await fetchJSON(api("events?limit=50"), {
+    const params = new URLSearchParams();
+    params.set("limit", "100");
+    if (eTypeDebounced) params.set("type", eTypeDebounced);
+    if (eSourceDebounced) params.set("source", eSourceDebounced);
+    if (eFrom) params.set("dateFrom", eFrom);
+    if (eTo) params.set("dateTo", eTo);
+
+    const res = await fetchJSON(api(`events?${params.toString()}`), {
       headers: { ...authHeaders },
       signal: abortKey("events"),
       timeoutMs: 18000,
@@ -376,7 +425,30 @@ export default function DashboardInner() {
 
     setEvents(res.ok ? parseList(res.json || []) : []);
     setLoadingEvents(false);
-  }, [abortKey, authHeaders, getToken]);
+  }, [abortKey, authHeaders, eFrom, eSourceDebounced, eTo, eTypeDebounced, getToken]);
+
+  const fetchTestimonials = useCallback(async () => {
+    setLoadingTestimonials(true);
+
+    if (!getToken()) {
+      setTestimonials([]);
+      setLoadingTestimonials(false);
+      return;
+    }
+
+    const params = new URLSearchParams();
+    params.set("limit", "200");
+    if (tStatus) params.set("status", tStatus);
+
+    const res = await fetchJSON(api(`testimonials/admin?${params.toString()}`), {
+      headers: { ...authHeaders },
+      signal: abortKey("testimonials"),
+      timeoutMs: 18000,
+    });
+
+    setTestimonials(res.ok ? parseList(res.json || []) : []);
+    setLoadingTestimonials(false);
+  }, [abortKey, authHeaders, getToken, tStatus]);
 
   const fetchAll = useCallback(
     async ({ silent = false } = {}) => {
@@ -388,10 +460,10 @@ export default function DashboardInner() {
       setLastUpdated(new Date());
       if (!silent) {
         setLoading(false);
-        showToast("Dashboard actualizado", "success");
+        showToast(t("toast.dashboardUpdated", "Dashboard updated"), "success");
       }
     },
-    [fetchBookings, fetchEvents, fetchPackages, fetchStats, showToast]
+    [fetchBookings, fetchEvents, fetchPackages, fetchStats, showToast, t]
   );
 
   /* ===================== Effects ===================== */
@@ -413,10 +485,21 @@ export default function DashboardInner() {
   }, [bPage, bLimit, bStatus, showCancelled, bSort, bQDebounced]);
 
   useEffect(() => {
+    fetchEvents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eTypeDebounced, eSourceDebounced, eFrom, eTo]);
+
+  useEffect(() => {
     if (!autoRefresh) return;
     const t = setInterval(() => fetchAll({ silent: true }), 30000);
     return () => clearInterval(t);
   }, [autoRefresh, fetchAll]);
+
+  useEffect(() => {
+    if (tab !== "testimonials") return;
+    fetchTestimonials();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, tStatus]);
 
   /* ===================== Mutations ===================== */
   const updateStatus = useCallback(
@@ -440,22 +523,22 @@ export default function DashboardInner() {
       if (!res.ok) {
         if (res.status === 401) return handle401();
         setBookingsResp((p) => ({ ...p, items: prevItems }));
-        showToast(res.json?.message || "No se pudo actualizar el estado", "danger");
+        showToast(res.json?.message || t("errors.updateStatus", "Could not update status."), "danger");
         return;
       }
 
-      showToast(`Reserva actualizada: ${status}`, "success");
+      showToast(`${t("toast.bookingUpdated", "Booking updated")}: ${status}`, "success");
       setLastUpdated(new Date());
       fetchStats();
     },
-    [authHeaders, bookingsResp.items, fetchStats, getToken, handle401, showToast]
+    [authHeaders, bookingsResp.items, fetchStats, getToken, handle401, showToast, t]
   );
 
   const bulkUpdateStatus = useCallback(
     async (status) => {
       const ids = Array.from(selectedIds);
-      if (ids.length === 0) return showToast("Selecciona al menos 1 reserva", "info");
-      if (!confirm(`¿Aplicar "${status}" a ${ids.length} reserva(s)?`)) return;
+      if (ids.length === 0) return showToast(t("toast.selectAtLeastOne", "Select at least 1 booking"), "info");
+      if (!confirm(`${t("confirm.bulkApply", "Apply")} "${status}" ${t("confirm.bulkTo", "to")} ${ids.length} ${t("confirm.bulkBookings", "booking(s)")}?`)) return;
 
       if (!getToken()) return handle401();
 
@@ -476,21 +559,21 @@ export default function DashboardInner() {
       if (!res.ok) {
         if (res.status === 401) return handle401();
         setBookingsResp((p) => ({ ...p, items: prevItems }));
-        showToast(res.json?.message || "No se pudo aplicar acción en lote", "danger");
+        showToast(res.json?.message || t("errors.bulkAction", "Could not apply bulk action."), "danger");
         return;
       }
 
       setSelectedIds(new Set());
-      showToast(`Lote aplicado: ${status}`, "success");
+      showToast(`${t("toast.bulkApplied", "Bulk applied")}: ${status}`, "success");
       setLastUpdated(new Date());
       fetchStats();
     },
-    [authHeaders, bookingsResp.items, fetchStats, getToken, handle401, selectedIds, showToast]
+    [authHeaders, bookingsResp.items, fetchStats, getToken, handle401, selectedIds, showToast, t]
   );
 
   const openBookingPdf = useCallback(
     async (dbId) => {
-      if (!dbId) return showToast("Reserva sin ID", "info");
+      if (!dbId) return showToast(t("errors.bookingNoId", "Booking without ID"), "info");
       if (!getToken()) return handle401();
 
       const res = await fetch(api(`bookings/${encodeURIComponent(dbId)}/pdf`), {
@@ -499,18 +582,18 @@ export default function DashboardInner() {
       });
 
       if (res.status === 401) return handle401();
-      if (!res.ok) return showToast("No se pudo abrir el PDF", "danger");
+      if (!res.ok) return showToast(t("errors.openPdf", "Could not open PDF"), "danger");
 
       const blob = await res.blob();
       triggerDownloadFromBlob(blob, `reserva_${dbId}.pdf`);
-      showToast("PDF descargado", "success");
+      showToast(t("toast.pdfDownloaded", "PDF downloaded"), "success");
     },
-    [authHeaders, getToken, handle401, showToast]
+    [authHeaders, getToken, handle401, showToast, t]
   );
 
   const openBrochurePdf = useCallback(
     async (packageId) => {
-      if (!packageId) return showToast("Paquete sin ID", "info");
+      if (!packageId) return showToast(t("errors.packageNoId", "Package without ID"), "info");
       if (!getToken()) return handle401();
 
       const res = await fetch(api(`brochures/${encodeURIComponent(packageId)}.pdf`), {
@@ -519,13 +602,41 @@ export default function DashboardInner() {
       });
 
       if (res.status === 401) return handle401();
-      if (!res.ok) return showToast("No se pudo abrir el brochure", "danger");
+      if (!res.ok) return showToast(t("errors.openBrochure", "Could not open brochure"), "danger");
 
       const blob = await res.blob();
       triggerDownloadFromBlob(blob, `brochure_${packageId}.pdf`);
-      showToast("Brochure descargado", "success");
+      showToast(t("toast.brochureDownloaded", "Brochure downloaded"), "success");
     },
-    [authHeaders, getToken, handle401, showToast]
+    [authHeaders, getToken, handle401, showToast, t]
+  );
+
+  const updateTestimonialStatus = useCallback(
+    async (id, status) => {
+      if (!id) return;
+      if (!getToken()) return handle401();
+
+      const prev = testimonials;
+      setTestimonials((items) => items.map((t) => (String(t._id || t.id) === String(id) ? { ...t, status } : t)));
+
+      const res = await fetchJSON(api(`testimonials/${encodeURIComponent(id)}/status`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify({ status }),
+        timeoutMs: 15000,
+      });
+
+      if (!res.ok) {
+        if (res.status === 401) return handle401();
+        setTestimonials(prev);
+        showToast(t("testimonials.updateFailed", "Could not update testimonial."), "danger");
+        return;
+      }
+
+      showToast(t("testimonials.updated", "Testimonial updated."), "success");
+      setLastUpdated(new Date());
+    },
+    [authHeaders, getToken, handle401, showToast, t, testimonials]
   );
 
   const exportBookingsCSVFromServer = useCallback(
@@ -533,12 +644,26 @@ export default function DashboardInner() {
       if (!getToken()) return handle401();
 
       const ids = Array.from(selectedIds);
-      if (onlySelected && ids.length === 0) return showToast("No hay reservas seleccionadas", "info");
+      if (onlySelected && ids.length === 0) return showToast(t("toast.noSelected", "No bookings selected"), "info");
 
       // Client-side export for selected
       if (onlySelected) {
         const rows = bookingsResp.items.filter((b) => selectedIds.has(bookingDbId(b)));
-        const header = ["BookingID", "DB_ID", "Fecha", "Estado", "Paquete", "Cliente", "Email", "Telefono", "Adultos", "Ninos", "Total", "Moneda", "CreatedAt"];
+        const header = [
+          t("export.bookingId", "BookingID"),
+          t("export.dbId", "DB_ID"),
+          t("export.date", "Date"),
+          t("export.status", "Status"),
+          t("export.package", "Package"),
+          t("export.customer", "Customer"),
+          t("export.email", "Email"),
+          t("export.phone", "Phone"),
+          t("export.adults", "Adults"),
+          t("export.children", "Children"),
+          t("export.total", "Total"),
+          t("export.currency", "Currency"),
+          t("export.createdAt", "CreatedAt"),
+        ];
 
         const esc = (v) => {
           const s = String(v ?? "");
@@ -572,7 +697,7 @@ export default function DashboardInner() {
 
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
         triggerDownloadFromBlob(blob, `reservas_seleccionadas_${new Date().toISOString().slice(0, 10)}.csv`);
-        showToast("Exportado (seleccionadas)", "success");
+        showToast(t("toast.exportedSelected", "Exported (selected)"), "success");
         return;
       }
 
@@ -586,19 +711,19 @@ export default function DashboardInner() {
       const res = await fetch(url, { method: "GET", headers: { ...authHeaders } });
 
       if (res.status === 401) return handle401();
-      if (!res.ok) return showToast("No se pudo exportar", "danger");
+      if (!res.ok) return showToast(t("errors.export", "Could not export"), "danger");
 
       const blob = await res.blob();
       triggerDownloadFromBlob(blob, `reservas_${new Date().toISOString().slice(0, 10)}.csv`);
-      showToast("Exportado (filtradas)", "success");
+      showToast(t("toast.exportedFiltered", "Exported (filtered)"), "success");
     },
-    [authHeaders, bQDebounced, bStatus, bookingsResp.items, getToken, handle401, selectedIds, showCancelled, showToast]
+    [authHeaders, bQDebounced, bStatus, bookingsResp.items, getToken, handle401, selectedIds, showCancelled, showToast, t]
   );
 
   const deletePackage = useCallback(
     async (id, title) => {
       if (!id) return;
-      if (!confirm(`¿Eliminar "${title || "este paquete"}"? Esta acción no se puede deshacer.`)) return;
+      if (!confirm(`${t("confirm.deletePackage", "Delete")} "${title || t("packages.thisPackage", "this package")}"? ${t("confirm.cannotUndo", "This action cannot be undone.")}`)) return;
 
       if (!getToken()) return handle401();
 
@@ -610,16 +735,16 @@ export default function DashboardInner() {
           timeoutMs: 20000,
         });
 
-        if (!res.ok) throw new Error(res.json?.message || "No se pudo eliminar.");
+        if (!res.ok) throw new Error(res.json?.message || t("errors.deletePackage", "Failed to delete package."));
         setPackages((prev) => prev.filter((p) => (p._id || p.id) !== id));
-        showToast("Paquete eliminado", "success");
+        showToast(t("toast.packageDeleted", "Package deleted"), "success");
       } catch (e) {
-        setErr(e?.message || "Error al eliminar el paquete.");
+        setErr(e?.message || t("errors.deletePackage", "Failed to delete package."));
       } finally {
         setDeletingPkgId(null);
       }
     },
-    [authHeaders, getToken, handle401, showToast]
+    [authHeaders, getToken, handle401, showToast, t]
   );
 
   /* ===================== Selection helpers ===================== */
@@ -644,19 +769,25 @@ export default function DashboardInner() {
       }
       return n;
     });
-    showToast("Seleccionadas reservas de la página", "success");
-  }, [bookingsResp.items, showToast]);
+    showToast(t("toast.selectedPage", "Selected bookings on page"), "success");
+  }, [bookingsResp.items, showToast, t]);
 
   const copyText = useCallback(
-    async (t) => {
+    async (text, key) => {
       try {
-        await navigator.clipboard.writeText(String(t || ""));
-        showToast("Copiado ✅", "success");
+        await navigator.clipboard.writeText(String(text || ""));
+        if (key) setLastCopiedKey(String(key));
+        showToast(t("toast.copied", "Copied ✅"), "success");
+        if (key) {
+          setTimeout(() => {
+            setLastCopiedKey((k) => (k === String(key) ? "" : k));
+          }, 1500);
+        }
       } catch {
-        showToast("No se pudo copiar", "info");
+        showToast(t("errors.copyFailed", "Could not copy"), "info");
       }
     },
-    [showToast]
+    [showToast, t]
   );
 
   /* ===================== Derived ===================== */
@@ -674,6 +805,18 @@ export default function DashboardInner() {
     });
   }, [packages, pQ, pOnlyPromo]);
 
+  const testimonialsFiltered = useMemo(() => {
+    const q = tQDebounced.trim().toLowerCase();
+    if (!q) return testimonials;
+    return testimonials.filter((t) => {
+      const hay = [t.name, t.title, t.message, t.country, t.source, t.packageSlug]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [testimonials, tQDebounced]);
+
   const statusBadgeCls = useCallback((s) => {
     switch (s) {
       case "Finalizado":
@@ -689,10 +832,10 @@ export default function DashboardInner() {
 
   const headerSubline = useMemo(() => {
     const parts = [];
-    parts.push(online ? "En línea" : "Sin conexión");
-    if (lastUpdated) parts.push(`Actualizado: ${fmtDT(lastUpdated)}`);
+    parts.push(online ? t("labels.online", "Online") : t("labels.offline", "Offline"));
+    if (lastUpdated) parts.push(`${t("labels.lastUpdated", "Updated")}: ${fmtDT(lastUpdated, locale)}`);
     return parts.join(" · ");
-  }, [online, lastUpdated]);
+  }, [online, lastUpdated, locale, t]);
 
   // Avoid stale error banner when data is visible
   const showGlobalError = Boolean(err) && bookingsResp.items.length === 0;
@@ -751,7 +894,9 @@ export default function DashboardInner() {
               )}
 
               <div>
-                <h2 className="text-2xl md:text-3xl font-bold tracking-tight">{COMPANY_NAME} • Admin</h2>
+                <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
+                  {COMPANY_NAME} • {t("admin.title", "Admin")}
+                </h2>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <span
                     className={classNames(
@@ -763,7 +908,7 @@ export default function DashboardInner() {
                   </span>
                   {loading && (
                     <span className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-200">
-                      Cargando…
+                      {t("dashboard.loading", "Loading…")}
                     </span>
                   )}
                 </div>
@@ -773,23 +918,29 @@ export default function DashboardInner() {
             <div className="flex flex-wrap items-center gap-2">
               <label className="flex items-center gap-2 text-sm bg-slate-50 border rounded-lg px-3 py-2">
                 <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
-                Auto-actualizar (30s)
+                {t("dashboard.autoRefresh", "Auto-refresh (30s)")}
               </label>
 
               <button className="btn" onClick={() => fetchAll()}>
-                Actualizar
+                {t("actions.refresh", "Refresh")}
               </button>
 
               <Link href="/admin/packages" className="btn btn-ghost">
-                Paquetes
+                {t("admin.packages", "Packages")}
+              </Link>
+              <Link href="/admin/testimonials" className="btn btn-ghost">
+                {t("admin.testimonials", "Testimonials")}
+              </Link>
+              <Link href="/admin/activity" className="btn btn-ghost">
+                {t("admin.activity", "Activity log")}
               </Link>
 
               <button
                 onClick={handleLogout}
                 className="btn btn-ghost text-red-600 hover:bg-red-50 hover:text-red-700"
-                title="Cerrar sesión"
+                title={t("actions.signOut", "Sign out")}
               >
-                Cerrar sesión
+                {t("actions.signOut", "Sign out")}
               </button>
             </div>
           </div>
@@ -803,7 +954,7 @@ export default function DashboardInner() {
               )}
               onClick={() => setTab("bookings")}
             >
-              Reservas
+              {t("admin.bookings", "Bookings")}
             </button>
             <button
               className={classNames(
@@ -812,7 +963,16 @@ export default function DashboardInner() {
               )}
               onClick={() => setTab("packages")}
             >
-              Paquetes
+              {t("admin.packages", "Packages")}
+            </button>
+            <button
+              className={classNames(
+                "px-3 py-2 rounded-lg border text-sm",
+                tab === "testimonials" ? "bg-slate-900 text-white border-slate-900" : "bg-white hover:bg-slate-50"
+              )}
+              onClick={() => setTab("testimonials")}
+            >
+              {t("admin.testimonials", "Testimonials")}
             </button>
             <button
               className={classNames(
@@ -821,7 +981,7 @@ export default function DashboardInner() {
               )}
               onClick={() => setTab("events")}
             >
-              Eventos
+              {t("admin.events", "Events")}
             </button>
           </div>
 
@@ -836,21 +996,26 @@ export default function DashboardInner() {
         {/* KPIs */}
         <div className="mt-6">
           <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-            <KPI title="Paquetes totales" value={loadingStats ? "…" : uiStats?.packages?.total ?? packages.length} />
+            <KPI title={t("kpi.totalPackages", "Total packages")} value={loadingStats ? "…" : uiStats?.packages?.total ?? packages.length} />
             <KPI
-              title="Paquetes activos"
+              title={t("kpi.activePackages", "Active packages")}
               value={loadingStats ? "…" : uiStats?.packages?.active ?? packages.filter((p) => p.active !== false).length}
             />
             <KPI
-              title="Promos (any)"
+              title={t("kpi.promos", "Promos (any)")}
               value={loadingStats ? "…" : uiStats?.packages?.promoAny ?? packages.filter((p) => p.isPromoActive).length}
             />
-            <KPI title="Reservas activas" value={loadingStats ? "…" : uiStats?.bookings?.active ?? bookingsResp.total} />
-            <KPI title="Canceladas" value={loadingStats ? "…" : kpiCancelled} accent="danger" />
+            <KPI title={t("kpi.activeBookings", "Active bookings")} value={loadingStats ? "…" : uiStats?.bookings?.active ?? bookingsResp.total} />
+            <KPI title={t("kpi.cancelled", "Cancelled")} value={loadingStats ? "…" : kpiCancelled} accent="danger" />
 
             {uiStats?.revenueByCurrency
               ? Object.entries(uiStats.revenueByCurrency).map(([cur, amount]) => (
-                  <KPI key={cur} title={`Ingresos · ${currencyHuman(cur)}`} value={money(amount, cur)} subtitle="(Finalizado)" />
+                  <KPI
+                    key={cur}
+                    title={`${t("kpi.revenue", "Revenue")} · ${currencyLabel(cur)}`}
+                    value={money(amount, cur, locale)}
+                    subtitle={t("bookings.finalized", "(Finalized)")}
+                  />
                 ))
               : null}
           </div>
@@ -860,31 +1025,31 @@ export default function DashboardInner() {
         {tab === "bookings" && (
           <section className="mt-8 space-y-3">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-              <h3 className="text-xl font-semibold">Reservas</h3>
+              <h3 className="text-xl font-semibold">{t("admin.bookings", "Bookings")}</h3>
 
               <div className="flex flex-wrap items-center gap-2">
                 <button className="btn btn-ghost" onClick={() => exportBookingsCSVFromServer({ onlySelected: false })}>
-                  Exportar (filtradas)
+                  {t("bookings.exportFiltered", "Export (filtered)")}
                 </button>
                 <button className="btn btn-ghost" onClick={() => exportBookingsCSVFromServer({ onlySelected: true })}>
-                  Exportar (seleccionadas)
+                  {t("bookings.exportSelected", "Export (selected)")}
                 </button>
                 <button className="btn btn-ghost" onClick={selectAllOnPage}>
-                  Seleccionar pág.
+                  {t("bookings.selectPage", "Select page")}
                 </button>
                 <button className="btn btn-ghost" onClick={clearSelection}>
-                  Limpiar selección
+                  {t("bookings.clearSelection", "Clear selection")}
                 </button>
 
                 <div className="flex items-center gap-2">
                   <button className="btn btn-ghost" onClick={() => bulkUpdateStatus("En proceso")}>
-                    Lote: En proceso
+                    {t("bookings.bulkInProgress", "Bulk: In progress")}
                   </button>
                   <button className="btn btn-ghost" onClick={() => bulkUpdateStatus("Finalizado")}>
-                    Lote: Finalizado
+                    {t("bookings.bulkFinalized", "Bulk: Finalized")}
                   </button>
                   <button className="btn btn-ghost text-rose-700" onClick={() => bulkUpdateStatus("Cancelado")}>
-                    Lote: Cancelar
+                    {t("bookings.bulkCancel", "Bulk: Cancel")}
                   </button>
                 </div>
               </div>
@@ -895,7 +1060,7 @@ export default function DashboardInner() {
               <div className="card-body grid grid-cols-1 md:grid-cols-10 gap-3">
                 <input
                   className="input md:col-span-4"
-                  placeholder="Buscar (cliente, email, paquete, ID)…"
+                  placeholder={t("bookings.searchPlaceholder", "Search (customer, email, package, ID)…")}
                   value={bQ}
                   onChange={(e) => {
                     setBQ(e.target.value);
@@ -911,10 +1076,10 @@ export default function DashboardInner() {
                     setBPage(1);
                   }}
                 >
-                  <option value="">Todos los estados</option>
+                  <option value="">{t("bookings.allStatuses", "All statuses")}</option>
                   {BOOKING_STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
+                    <option key={s.value} value={s.value}>
+                      {s.label}
                     </option>
                   ))}
                 </select>
@@ -937,12 +1102,13 @@ export default function DashboardInner() {
                     }}
                     className="rounded"
                   />
-                  <span className="text-sm text-slate-700">Incluir canceladas</span>
+                  <span className="text-sm text-slate-700">{t("bookings.includeCancelled", "Include cancelled")}</span>
                 </label>
 
                 <div className="md:col-span-10 flex items-center justify-between gap-2 bg-slate-50 border rounded-lg p-2">
                   <div className="text-sm text-slate-700">
-                    Total: <b>{loadingBookings ? "…" : bookingsResp.total}</b> · Página <b>{bookingsResp.page}</b>/<b>{bookingsResp.pages}</b> · Seleccionadas:{" "}
+                    {t("labels.total", "Total")}: <b>{loadingBookings ? "…" : bookingsResp.total}</b> · {t("labels.page", "Page")}{" "}
+                    <b>{bookingsResp.page}</b>/<b>{bookingsResp.pages}</b> · {t("labels.selected", "Selected")}:{" "}
                     <b>{selectedIds.size}</b>
                   </div>
 
@@ -954,11 +1120,11 @@ export default function DashboardInner() {
                         setBLimit(Number(e.target.value || 30));
                         setBPage(1);
                       }}
-                      title="Resultados por página"
+                      title={t("bookings.resultsPerPage", "Results per page")}
                     >
                       {[15, 30, 50, 80, 120].map((n) => (
                         <option key={n} value={n}>
-                          {n}/pág
+                          {t("bookings.perPage", `${n}/page`).replace("{n}", String(n))}
                         </option>
                       ))}
                     </select>
@@ -1003,7 +1169,7 @@ export default function DashboardInner() {
             ) : bookingsResp.items.length === 0 ? (
               <div className="card">
                 <div className="card-body text-center py-10">
-                  <p className="text-slate-600">No hay reservas con esos filtros.</p>
+                  <p className="text-slate-600">{t("empty.noBookings", "No bookings found for these filters.")}</p>
                 </div>
               </div>
             ) : (
@@ -1027,12 +1193,12 @@ export default function DashboardInner() {
                               }}
                             />
                           </th>
-                          <th className="p-3">Paquete</th>
-                          <th className="p-3">Fecha</th>
-                          <th className="p-3">Cliente</th>
-                          <th className="p-3">Total</th>
-                          <th className="p-3">Estado</th>
-                          <th className="p-3">Acciones</th>
+                          <th className="p-3">{t("table.package", "Package")}</th>
+                          <th className="p-3">{t("table.date", "Date")}</th>
+                          <th className="p-3">{t("table.customer", "Customer")}</th>
+                          <th className="p-3">{t("table.total", "Total")}</th>
+                          <th className="p-3">{t("table.status", "Status")}</th>
+                          <th className="p-3">{t("table.actions", "Actions")}</th>
                         </tr>
                       </thead>
 
@@ -1046,7 +1212,8 @@ export default function DashboardInner() {
                           const pkgTitle = b.packageMeta?.title || b.package?.title || "—";
                           const when = b.date ? new Date(b.date) : null;
                           const totalCur = (b.currency || "PEN").toUpperCase();
-                          const wa = cust.phone ? buildWa(cust.phone, `Hola! Sobre mi reserva (${uiId}) en ${COMPANY_NAME}…`) : null;
+                          const waText = `${t("bookings.waMessageCompany", "Hi! About my booking")} (${uiId}) ${COMPANY_NAME}…`;
+                          const wa = cust.phone ? buildWa(cust.phone, waText) : null;
 
                           return (
                             <tr key={dbId} className={classNames(status === "Cancelado" ? "bg-slate-50 opacity-80" : "")}>
@@ -1057,14 +1224,19 @@ export default function DashboardInner() {
                               <td className="p-3 align-top">
                                 <div className="font-semibold">{pkgTitle}</div>
                                 <div className="text-xs text-slate-500">
-                                  {city} · ID: <span className="font-mono">{uiId || "—"}</span>{" "}
-                                  <button className="underline" onClick={() => copyText(uiId || dbId)}>
-                                    copiar
+                                  {city} · {t("labels.id", "ID")}: <span className="font-mono">{uiId || "—"}</span>{" "}
+                                  <button
+                                    className="underline"
+                                    onClick={() => copyText(uiId || dbId, `booking:${uiId || dbId}`)}
+                                  >
+                                    {lastCopiedKey === `booking:${uiId || dbId}`
+                                      ? t("actions.copied", "Copied!")
+                                      : t("actions.copy", "copy")}
                                   </button>
                                 </div>
                               </td>
 
-                              <td className="p-3 align-top text-slate-700">{fmtDT(when)}</td>
+                              <td className="p-3 align-top text-slate-700">{fmtDT(when, locale)}</td>
 
                               <td className="p-3 align-top">
                                 <div className="font-medium">{cust.name || "—"}</div>
@@ -1073,30 +1245,32 @@ export default function DashboardInner() {
                               </td>
 
                               <td className="p-3 align-top">
-                                <div className="font-semibold">{money(b.totalPrice ?? 0, totalCur)}</div>
-                                <div className="text-xs text-slate-500">{currencyHuman(totalCur)}</div>
+                                <div className="font-semibold">{money(b.totalPrice ?? 0, totalCur, locale)}</div>
+                                <div className="text-xs text-slate-500">{currencyLabel(totalCur)}</div>
                               </td>
 
                               <td className="p-3 align-top">
-                                <span className={statusBadgeCls(status)}>{status}</span>
+                                <span className={statusBadgeCls(status)}>
+                                  {BOOKING_STATUSES.find((s) => s.value === status)?.label || status}
+                                </span>
                                 <div className="mt-2 flex flex-wrap gap-1">
                                   {BOOKING_STATUSES.map((s) => {
-                                    const disabled = s === status;
+                                    const disabled = s.value === status;
                                     return (
                                       <button
-                                        key={s}
+                                        key={s.value}
                                         className={classNames(
                                           "px-2 py-1 rounded border text-xs",
                                           disabled
                                             ? "bg-slate-200 text-slate-600 cursor-not-allowed"
-                                            : s === "Cancelado"
+                                            : s.value === "Cancelado"
                                             ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
                                             : "bg-white hover:bg-slate-50"
                                         )}
-                                        onClick={() => !disabled && updateStatus(dbId, s)}
+                                        onClick={() => !disabled && updateStatus(dbId, s.value)}
                                         disabled={disabled}
                                       >
-                                        {s}
+                                        {s.label}
                                       </button>
                                     );
                                   })}
@@ -1107,20 +1281,22 @@ export default function DashboardInner() {
                                 <div className="flex flex-wrap gap-2">
                                   {wa && (
                                     <a className="px-3 py-1 rounded border text-xs bg-white hover:bg-slate-50" href={wa} target="_blank" rel="noopener noreferrer">
-                                      WhatsApp
+                                      {t("labels.whatsapp", "WhatsApp")}
                                     </a>
                                   )}
                                   {cust.email && (
                                     <a className="px-3 py-1 rounded border text-xs bg-white hover:bg-slate-50" href={`mailto:${cust.email}`}>
-                                      Email
+                                      {t("labels.email", "Email")}
                                     </a>
                                   )}
                                   <button
                                     className="px-3 py-1 rounded border text-xs bg-white hover:bg-slate-50"
-                                    onClick={() => copyText(cust.email || "")}
+                                    onClick={() => copyText(cust.email || "", `email:${uiId || dbId}`)}
                                     disabled={!cust.email}
                                   >
-                                    Copiar email
+                                    {lastCopiedKey === `email:${uiId || dbId}`
+                                      ? t("actions.copied", "Copied!")
+                                      : t("actions.copyEmail", "Copy email")}
                                   </button>
                                 </div>
                               </td>
@@ -1144,7 +1320,8 @@ export default function DashboardInner() {
                     const status = b.status || "Pendiente";
                     const cust = b.customer || {};
                     const totalCur = (b.currency || "PEN").toUpperCase();
-                    const wa = cust.phone ? buildWa(cust.phone, `Hola! Sobre mi reserva (${uiId})…`) : null;
+                    const waText = `${t("bookings.waMessage", "Hi! About my booking")} (${uiId})…`;
+                    const wa = cust.phone ? buildWa(cust.phone, waText) : null;
 
                     return (
                       <div key={dbId} className={classNames("card", status === "Cancelado" ? "bg-slate-50 opacity-80" : "")}>
@@ -1153,63 +1330,78 @@ export default function DashboardInner() {
                             <div>
                               <div className="font-semibold line-clamp-1">{pkgTitle}</div>
                               <div className="text-xs text-slate-500">
-                                {city} · ID: <span className="font-mono">{uiId || "—"}</span>{" "}
-                                <button className="underline" onClick={() => copyText(uiId || dbId)}>
-                                  copiar
+                                {city} · {t("labels.id", "ID")}: <span className="font-mono">{uiId || "—"}</span>{" "}
+                                <button
+                                  className="underline"
+                                  onClick={() => copyText(uiId || dbId, `booking:${uiId || dbId}`)}
+                                >
+                                  {lastCopiedKey === `booking:${uiId || dbId}`
+                                    ? t("actions.copied", "Copied!")
+                                    : t("actions.copy", "copy")}
                                 </button>
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
                               <input type="checkbox" checked={selectedIds.has(dbId)} onChange={() => toggleSelect(dbId)} />
-                              <span className={statusBadgeCls(status)}>{status}</span>
+                              <span className={statusBadgeCls(status)}>
+                                {BOOKING_STATUSES.find((s) => s.value === status)?.label || status}
+                              </span>
                             </div>
                           </div>
 
-                          <div className="text-sm text-slate-600">{fmtDT(when)}</div>
+                          <div className="text-sm text-slate-600">{fmtDT(when, locale)}</div>
                           <div className="text-sm">
-                            <b>{cust.name || "Cliente"}</b> • {cust.email || "—"}
+                            <b>{cust.name || t("labels.customer", "Customer")}</b> • {cust.email || "—"}
                           </div>
-                          <div className="text-sm text-slate-600">Tel: {cust.phone || "—"}</div>
+                          <div className="text-sm text-slate-600">
+                            {t("labels.phone", "Phone")}: {cust.phone || "—"}
+                          </div>
 
                           <div className="text-sm">
-                            Total: <b>{money(b.totalPrice ?? 0, totalCur)}</b>{" "}
-                            <span className="text-xs text-slate-500">({currencyHuman(totalCur)})</span>
+                            {t("labels.total", "Total")}: <b>{money(b.totalPrice ?? 0, totalCur, locale)}</b>{" "}
+                            <span className="text-xs text-slate-500">({currencyLabel(totalCur)})</span>
                           </div>
 
                           <div className="flex flex-wrap gap-2 pt-1">
                             {wa && (
                               <a className="px-3 py-1 rounded border text-sm bg-white hover:bg-slate-50" href={wa} target="_blank" rel="noopener noreferrer">
-                                WhatsApp
+                                {t("labels.whatsapp", "WhatsApp")}
                               </a>
                             )}
                             {cust.email && (
                               <a className="px-3 py-1 rounded border text-sm bg-white hover:bg-slate-50" href={`mailto:${cust.email}`}>
-                                Email
+                                {t("labels.email", "Email")}
                               </a>
                             )}
-                            <button className="px-3 py-1 rounded border text-sm bg-white hover:bg-slate-50" onClick={() => copyText(cust.email || "")} disabled={!cust.email}>
-                              Copiar email
+                            <button
+                              className="px-3 py-1 rounded border text-sm bg-white hover:bg-slate-50"
+                              onClick={() => copyText(cust.email || "", `email:${uiId || dbId}`)}
+                              disabled={!cust.email}
+                            >
+                              {lastCopiedKey === `email:${uiId || dbId}`
+                                ? t("actions.copied", "Copied!")
+                                : t("actions.copyEmail", "Copy email")}
                             </button>
                           </div>
 
                           <div className="flex flex-wrap gap-2 pt-2">
                             {BOOKING_STATUSES.map((s) => {
-                              const disabled = s === status;
+                              const disabled = s.value === status;
                               return (
                                 <button
-                                  key={s}
+                                  key={s.value}
                                   className={classNames(
                                     "px-3 py-1 rounded border text-sm",
                                     disabled
                                       ? "bg-slate-200 text-slate-600 cursor-not-allowed"
-                                      : s === "Cancelado"
+                                      : s.value === "Cancelado"
                                       ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
                                       : "bg-white hover:bg-slate-50"
                                   )}
-                                  onClick={() => !disabled && updateStatus(dbId, s)}
+                                  onClick={() => !disabled && updateStatus(dbId, s.value)}
                                   disabled={disabled}
                                 >
-                                  {s}
+                                  {s.label}
                                 </button>
                               );
                             })}
@@ -1228,26 +1420,31 @@ export default function DashboardInner() {
         {tab === "packages" && (
           <section className="mt-8 space-y-3">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-              <h3 className="text-xl font-semibold">Paquetes</h3>
+              <h3 className="text-xl font-semibold">{t("admin.packages", "Packages")}</h3>
               <div className="text-xs text-slate-500">
-                Crear/editar también desde{" "}
+                {t("packages.hint", "Create/edit also from")}{" "}
                 <Link href="/admin/packages" className="underline">
-                  Paquetes
+                  {t("admin.packages", "Packages")}
                 </Link>
               </div>
             </div>
 
             <div className="card">
               <div className="card-body grid grid-cols-1 md:grid-cols-6 gap-3">
-                <input className="input md:col-span-3" placeholder="Buscar paquete (título, ciudad, slug)…" value={pQ} onChange={(e) => setPQ(e.target.value)} />
+                <input
+                  className="input md:col-span-3"
+                  placeholder={t("packages.searchPlaceholder", "Search package (title, city, slug)…")}
+                  value={pQ}
+                  onChange={(e) => setPQ(e.target.value)}
+                />
 
                 <label className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border md:col-span-2">
                   <input type="checkbox" checked={pOnlyPromo} onChange={(e) => setPOnlyPromo(e.target.checked)} />
-                  <span className="text-sm text-slate-700">Solo promos</span>
+                  <span className="text-sm text-slate-700">{t("packages.onlyPromo", "Only promos")}</span>
                 </label>
 
                 <div className="text-sm text-slate-600 flex items-center md:col-span-1">
-                  Total: <b className="ml-1">{loadingPackages ? "…" : packagesFiltered.length}</b>
+                  {t("labels.total", "Total")}: <b className="ml-1">{loadingPackages ? "…" : packagesFiltered.length}</b>
                 </div>
               </div>
             </div>
@@ -1266,7 +1463,7 @@ export default function DashboardInner() {
                 ))}
               </div>
             ) : packagesFiltered.length === 0 ? (
-              <p className="text-slate-600">No hay paquetes con esos filtros.</p>
+              <p className="text-slate-600">{t("empty.noPackages", "No packages found for these filters.")}</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {packagesFiltered.map((p) => {
@@ -1279,12 +1476,12 @@ export default function DashboardInner() {
                   return (
                     <div key={id} className="card overflow-hidden">
                       <div className="relative">
-                        <img src={img} alt={p.title || "Paquete"} className="w-full h-44 object-cover" />
+                        <img src={img} alt={p.title || t("labels.package", "Package")} className="w-full h-44 object-cover" />
                         <div className="absolute top-3 left-3 flex gap-2">
                           <span className={classNames("badge", p.active !== false ? "bg-green-600 text-white" : "bg-slate-300 text-slate-800")}>
-                            {p.active !== false ? "Activo" : "Inactivo"}
+                            {p.active !== false ? t("labels.active", "Active") : t("labels.inactive", "Inactive")}
                           </span>
-                          {promo && <span className="badge bg-amber-500 text-white">Promo</span>}
+                          {promo && <span className="badge bg-amber-500 text-white">{t("labels.promo", "Promo")}</span>}
                         </div>
                       </div>
 
@@ -1295,27 +1492,29 @@ export default function DashboardInner() {
                         <div className="text-sm text-slate-700">
                           {showEffective ? (
                             <>
-                              <span className="line-through mr-2 text-slate-500">{money(p.price, p.currency)}</span>
-                              <span className="font-semibold">{money(priceCurrent, p.currency)}</span>
+                              <span className="line-through mr-2 text-slate-500">{money(p.price, p.currency, locale)}</span>
+                              <span className="font-semibold">{money(priceCurrent, p.currency, locale)}</span>
                             </>
                           ) : (
-                            <span className="font-semibold">{money(priceCurrent, p.currency)}</span>
+                            <span className="font-semibold">{money(priceCurrent, p.currency, locale)}</span>
                           )}
                         </div>
 
                         <div className="text-xs text-slate-500">
-                          Slug: {p.slug}{" "}
-                          <button className="underline" onClick={() => copyText(p.slug)}>
-                            copiar
+                          {t("labels.slug", "Slug")}: {p.slug}{" "}
+                          <button className="underline" onClick={() => copyText(p.slug, `slug:${p.slug}`)}>
+                            {lastCopiedKey === `slug:${p.slug}`
+                              ? t("actions.copied", "Copied!")
+                              : t("actions.copy", "copy")}
                           </button>
                         </div>
 
                         <div className="pt-2 flex flex-wrap gap-2">
                           <Link href={`/admin/packages/${id}/edit`} className="btn btn-ghost btn-sm">
-                            Editar
+                            {t("actions.edit", "Edit")}
                           </Link>
                           <Link href={`/packages/${p.slug}`} className="btn btn-ghost btn-sm" target="_blank" rel="noopener noreferrer">
-                            Ver público
+                            {t("actions.openPublic", "Open public")}
                           </Link>
 
                           <button
@@ -1324,7 +1523,151 @@ export default function DashboardInner() {
                             onClick={() => deletePackage(id, p.title)}
                             disabled={deletingPkgId === id}
                           >
-                            {deletingPkgId === id ? "Eliminando…" : "Eliminar"}
+                            {deletingPkgId === id ? t("actions.deleting", "Deleting…") : t("actions.delete", "Delete")}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ===================== TAB: TESTIMONIALS ===================== */}
+        {tab === "testimonials" && (
+          <section className="mt-8">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-xl font-semibold">{t("testimonials.title", "Testimonials")}</h3>
+              <button className="btn btn-ghost" onClick={fetchTestimonials} title={t("actions.refresh", "Refresh")}>
+                {t("actions.refresh", "Refresh")}
+              </button>
+            </div>
+
+            <div className="card mt-4">
+              <div className="card-body">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="label">{t("testimonials.filterStatus", "Status")}</label>
+                    <select className="input w-full" value={tStatus} onChange={(e) => setTStatus(e.target.value)}>
+                      <option value="pending">{t("testimonials.statusPending", "Pending")}</option>
+                      <option value="approved">{t("testimonials.statusApproved", "Approved")}</option>
+                      <option value="rejected">{t("testimonials.statusRejected", "Rejected")}</option>
+                    </select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="label">{t("testimonials.filterSearch", "Search")}</label>
+                    <input
+                      className="input w-full"
+                      value={tQ}
+                      onChange={(e) => setTQ(e.target.value)}
+                      placeholder={t("testimonials.filterSearchPlaceholder", "Name, message, package, source…")}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {loadingTestimonials ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="card">
+                    <div className="card-body animate-pulse space-y-2">
+                      <div className="h-4 bg-slate-200 rounded w-1/3" />
+                      <div className="h-3 bg-slate-200 rounded w-3/4" />
+                      <div className="h-3 bg-slate-200 rounded w-2/3" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : testimonialsFiltered.length === 0 ? (
+              <div className="card mt-4">
+                <div className="card-body">
+                  <p className="text-slate-600">{t("testimonials.empty", "No testimonials found.")}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-4">
+                {testimonialsFiltered.map((ts) => {
+                  const id = ts._id || ts.id;
+                  const status = ts.status || "pending";
+                  const statusLabel =
+                    status === "approved"
+                      ? t("testimonials.statusApproved", "Approved")
+                      : status === "rejected"
+                      ? t("testimonials.statusRejected", "Rejected")
+                      : t("testimonials.statusPending", "Pending");
+                  const statusTone = status === "approved" ? "success" : status === "rejected" ? "danger" : "pending";
+                  return (
+                    <div key={id} className="card">
+                      <div className="card-body">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="font-semibold">
+                              {ts.name || t("testimonials.anon", "Traveler")}
+                              {ts.country ? <span className="text-slate-500"> · {ts.country}</span> : null}
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              {fmtDT(ts.createdAt ? new Date(ts.createdAt) : null, locale)}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <StatusBadge label={statusLabel} tone={statusTone} />
+                            <Stars rating={ts.rating} className="text-amber-500 text-sm mt-1" />
+                          </div>
+                        </div>
+
+                        {ts.title ? <div className="mt-2 font-semibold">{ts.title}</div> : null}
+                        {ts.message ? <div className="mt-1 text-sm text-slate-700">{ts.message}</div> : null}
+
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-600">
+                          {ts.source ? (
+                            ts.sourceUrl ? (
+                              <a href={ts.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline">
+                                {ts.source}
+                              </a>
+                            ) : (
+                              <span>{ts.source}</span>
+                            )
+                          ) : null}
+                          {ts.packageSlug ? (
+                            <Link href={`/packages/${ts.packageSlug}`} target="_blank" className="underline">
+                              {ts.packageSlug}
+                            </Link>
+                          ) : null}
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button
+                            className={classNames(
+                              "btn btn-ghost btn-sm",
+                              status === "approved" ? "bg-emerald-50 text-emerald-700" : ""
+                            )}
+                            onClick={() => updateTestimonialStatus(id, "approved")}
+                            disabled={status === "approved"}
+                          >
+                            {t("testimonials.approve", "Approve")}
+                          </button>
+                          <button
+                            className={classNames(
+                              "btn btn-ghost btn-sm",
+                              status === "rejected" ? "bg-rose-50 text-rose-700" : ""
+                            )}
+                            onClick={() => updateTestimonialStatus(id, "rejected")}
+                            disabled={status === "rejected"}
+                          >
+                            {t("testimonials.reject", "Reject")}
+                          </button>
+                          <button
+                            className={classNames(
+                              "btn btn-ghost btn-sm",
+                              status === "pending" ? "bg-amber-50 text-amber-700" : ""
+                            )}
+                            onClick={() => updateTestimonialStatus(id, "pending")}
+                            disabled={status === "pending"}
+                          >
+                            {t("testimonials.markPending", "Mark pending")}
                           </button>
                         </div>
                       </div>
@@ -1340,10 +1683,66 @@ export default function DashboardInner() {
         {tab === "events" && (
           <section className="mt-8">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-xl font-semibold mb-3">Eventos del sitio</h3>
-              <button className="btn btn-ghost" onClick={fetchEvents} title="Recargar eventos">
-                Recargar
+              <h3 className="text-xl font-semibold mb-3">{t("events.title", "Site events")}</h3>
+              <button className="btn btn-ghost" onClick={fetchEvents} title={t("actions.refresh", "Refresh")}>
+                {t("actions.refresh", "Refresh")}
               </button>
+            </div>
+
+            <div className="card mb-4">
+              <div className="card-body">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                  <div>
+                    <label className="label">{t("events.filterType", "Type")}</label>
+                    <input
+                      className="input w-full"
+                      value={eType}
+                      onChange={(e) => setEType(e.target.value)}
+                      placeholder={t("events.filterTypePlaceholder", "e.g. booking_success")}
+                    />
+                  </div>
+                  <div>
+                    <label className="label">{t("events.filterSource", "Source")}</label>
+                    <input
+                      className="input w-full"
+                      value={eSource}
+                      onChange={(e) => setESource(e.target.value)}
+                      placeholder={t("events.filterSourcePlaceholder", "e.g. booking_form")}
+                    />
+                  </div>
+                  <div>
+                    <label className="label">{t("events.filterFrom", "From")}</label>
+                    <input
+                      type="date"
+                      className="input w-full"
+                      value={eFrom}
+                      onChange={(e) => setEFrom(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="label">{t("events.filterTo", "To")}</label>
+                    <input
+                      type="date"
+                      className="input w-full"
+                      value={eTo}
+                      onChange={(e) => setETo(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <button
+                      className="btn btn-ghost w-full"
+                      onClick={() => {
+                        setEType("");
+                        setESource("");
+                        setEFrom("");
+                        setETo("");
+                      }}
+                    >
+                      {t("events.clearFilters", "Clear filters")}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {loadingEvents ? (
@@ -1361,9 +1760,7 @@ export default function DashboardInner() {
             ) : events.length === 0 ? (
               <div className="card">
                 <div className="card-body">
-                  <p className="text-slate-600">
-                    No hay eventos. (Opcional) Implementa <code>/api/events</code> para registrar actividad.
-                  </p>
+                  <p className="text-slate-600">{t("events.empty", "No events yet.")}</p>
                 </div>
               </div>
             ) : (
@@ -1372,8 +1769,8 @@ export default function DashboardInner() {
                   <div key={ev.id || ev._id || i} className="card">
                     <div className="card-body">
                       <div className="flex items-center justify-between">
-                        <div className="font-semibold">{ev.type || "Evento"}</div>
-                        <div className="text-xs text-slate-500">{fmtDT(ev.createdAt ? new Date(ev.createdAt) : null)}</div>
+                        <div className="font-semibold">{ev.type || t("events.event", "Event")}</div>
+                        <div className="text-xs text-slate-500">{fmtDT(ev.createdAt ? new Date(ev.createdAt) : null, locale)}</div>
                       </div>
                       <div className="text-sm text-slate-700 mt-1">{ev.message || ev.description || "—"}</div>
                       {ev.meta && <pre className="mt-2 text-xs bg-slate-50 p-2 rounded overflow-auto max-h-40">{JSON.stringify(ev.meta, null, 2)}</pre>}
@@ -1399,6 +1796,26 @@ function KPI({ title, value, subtitle = "", accent = "default" }) {
         {subtitle ? <p className="text-xs text-slate-500 mt-1">{subtitle}</p> : null}
       </div>
     </div>
+  );
+}
+
+function StatusBadge({ label, tone = "pending" }) {
+  const cls =
+    tone === "success"
+      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+      : tone === "danger"
+      ? "bg-rose-50 text-rose-700 border-rose-200"
+      : "bg-amber-50 text-amber-700 border-amber-200";
+  return <span className={classNames("text-xs px-2 py-1 rounded border inline-flex", cls)}>{label}</span>;
+}
+
+function Stars({ rating = 5, className = "" }) {
+  const r = Math.max(0, Math.min(5, Number(rating) || 0));
+  return (
+    <span className={classNames("inline-flex items-center gap-0.5", className)} aria-label={`${r} / 5`}>
+      {"★".repeat(r)}
+      <span className="text-slate-300">{"★".repeat(5 - r)}</span>
+    </span>
   );
 }
 

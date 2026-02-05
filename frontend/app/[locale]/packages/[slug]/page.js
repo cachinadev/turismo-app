@@ -1,12 +1,18 @@
 // frontend/app/[locale]/packages/[slug]/page.js
-/* eslint-disable @next/next/no-img-element */
-
 import BookingForm from "@/app/components/BookingForm";
 import { notFound } from "next/navigation";
 import { mediaUrl } from "@/app/lib/media";
 import Link from "next/link";
-import { API_BASE, SITE_URL } from "@/app/lib/config";
+import Image from "next/image";
+import {
+  API_BASE,
+  SITE_URL,
+  CONTACT_PHONE,
+  WHATSAPP_NUMBER,
+} from "@/app/lib/config";
 import MediaCarousel from "@/app/components/MediaCarousel";
+import ShareButtonsClient from "./ShareButtonsClient";
+import HelpBoxClient from "./HelpBoxClient";
 import {
   MapPin,
   Clock,
@@ -42,11 +48,9 @@ const EMAIL_SALES =
   process.env.NEXT_PUBLIC_EMAIL_SALES ||
   process.env.NEXT_PUBLIC_CONTACT_EMAIL ||
   "contact@vicuadvent.com";
-const PHONE =
-  process.env.NEXT_PUBLIC_PHONE ||
-  process.env.NEXT_PUBLIC_CONTACT_PHONE ||
-  "+51 953858267";
-const WA_NUMBER = (String(PHONE).match(/\d+/g) || []).join("") || "51953858267";
+const WA_NUMBER =
+  (String(WHATSAPP_NUMBER || CONTACT_PHONE).match(/\d+/g) || []).join("") ||
+  "51953858267";
 
 /* ---------- i18n helpers ---------- */
 const SUPPORTED = ["es", "en", "fr", "pt", "ru"];
@@ -408,6 +412,28 @@ function Itinerary({ dict, itinerary = [], mapsUrl }) {
             Number.isFinite(Number(s?.durationMin)) && Number(s.durationMin) > 0
               ? Number(s.durationMin)
               : null;
+          const durationHours =
+            Number.isFinite(Number(s?.durationHours)) && Number(s.durationHours) >= 0
+              ? Number(s.durationHours)
+              : null;
+          const durationMinutes =
+            Number.isFinite(Number(s?.durationMinutes)) && Number(s.durationMinutes) >= 0
+              ? Number(s.durationMinutes)
+              : null;
+          const dayValue =
+            Number.isFinite(Number(s?.day)) && Number(s.day) > 0 ? Number(s.day) : null;
+          const stepTransport = safeText(s?.transport, 200);
+          const guideLanguages =
+            Array.isArray(s?.guideLanguages) && s.guideLanguages.length
+              ? s.guideLanguages.map((l) => String(l || "").trim()).filter(Boolean)
+              : typeof s?.guideLanguages === "string" && s.guideLanguages.trim()
+              ? s.guideLanguages.split(/[,;\n]/).map((x) => x.trim()).filter(Boolean)
+              : [];
+          const guideNotes = safeText(s?.guideNotes, 400);
+          const durationParts = [
+            durationHours ? `${durationHours}h` : null,
+            durationMinutes ? `${durationMinutes}m` : null,
+          ].filter(Boolean);
 
           return (
             <li key={idx} className="flex gap-3">
@@ -420,11 +446,24 @@ function Itinerary({ dict, itinerary = [], mapsUrl }) {
 
               <div className="flex-1">
                 <div className="flex flex-wrap items-center gap-2">
+                  {dayValue ? (
+                    <span className="text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 px-2 py-1 rounded-full">
+                      {t("day", "Day")} {dayValue}
+                    </span>
+                  ) : null}
                   {time ? (
                     <span className="text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 px-2 py-1 rounded-full">
                       {time}
                     </span>
                   ) : null}
+                  {durationParts.map((part) => (
+                    <span
+                      key={part}
+                      className="text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 px-2 py-1 rounded-full"
+                    >
+                      {part}
+                    </span>
+                  ))}
                   {durationMin ? (
                     <span className="text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 px-2 py-1 rounded-full">
                       {durationMin} min
@@ -457,6 +496,23 @@ function Itinerary({ dict, itinerary = [], mapsUrl }) {
                     ) : null}
                   </div>
                 )}
+                {(stepTransport || guideLanguages.length) && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-600">
+                    {stepTransport ? (
+                      <span className="px-2 py-1 rounded-full border border-slate-200 bg-slate-50">
+                        🚐 {stepTransport}
+                      </span>
+                    ) : null}
+                    {guideLanguages.length ? (
+                      <span className="px-2 py-1 rounded-full border border-slate-200 bg-slate-50">
+                        🎙️ {guideLanguages.join(', ')}
+                      </span>
+                    ) : null}
+                  </div>
+                )}
+                {guideNotes ? (
+                  <p className="mt-2 text-sm text-slate-500">{guideNotes}</p>
+                ) : null}
 
                 {details ? (
                   <div
@@ -569,6 +625,12 @@ function HelpBox({ title, canonical, dict }) {
           target="_blank"
           rel="noopener noreferrer"
           className="group bg-white rounded-xl border border-slate-200 p-3 hover:border-[#A3B117] hover:shadow-md transition-all duration-300 flex items-center gap-3"
+          onClick={() =>
+            trackEvent("cta_whatsapp_click", {
+              source: "package_help_box",
+              packageSlug: canonical?.split("/").pop() || "",
+            })
+          }
         >
           <div className="p-2 rounded-lg bg-gradient-to-br from-[#A3B117]/10 to-[#0086C0]/5">
             <MessageCircle className="w-5 h-5 text-[#A3B117]" />
@@ -578,7 +640,7 @@ function HelpBox({ title, canonical, dict }) {
               {t("chat", "Chat on WhatsApp")}
             </div>
             <div className="text-xs text-slate-500" style={{ fontFamily: "'Bree Serif', serif" }}>
-              Quick response • 24/7
+              {t("quickResponse", "Quick response • 24/7")}
             </div>
           </div>
           <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#A3B117] group-hover:translate-x-1 transition-all" />
@@ -596,7 +658,7 @@ function HelpBox({ title, canonical, dict }) {
               {t("email", "Email us")}
             </div>
             <div className="text-xs text-slate-500" style={{ fontFamily: "'Bree Serif', serif" }}>
-              Detailed inquiries • Attachments
+              {t("emailDetail", "Detailed inquiries • Attachments")}
             </div>
           </div>
           <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#0086C0] group-hover:translate-x-1 transition-all" />
@@ -963,46 +1025,11 @@ export default async function PackageDetail({ params }) {
           {/* Share + Map */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-12">
             {share ? (
-              <div className="flex items-center gap-3">
-                <div className="text-slate-700 font-medium" style={{ fontFamily: "'Bree Serif', serif" }}>
-                  {t("share", "Share")}:
-                </div>
-                <div className="flex gap-2">
-                  <a
-                    href={share.wa}
-                    className="p-2 rounded-full bg-gradient-to-br from-[#A3B117]/10 to-[#0086C0]/5 border border-slate-200 hover:border-[#A3B117] hover:shadow-md transition-all duration-300"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="WhatsApp"
-                  >
-                    <MessageCircle className="w-4 h-4 text-slate-600" />
-                  </a>
-
-                  <a
-                    href={share.tg}
-                    className="p-2 rounded-full bg-gradient-to-br from-[#0086C0]/10 to-[#0E374A]/5 border border-slate-200 hover:border-[#0086C0] hover:shadow-md transition-all duration-300"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="Telegram"
-                  >
-                    <svg className="w-4 h-4 text-slate-600" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M9.993 15.496 9.63 20.62c.52 0 .744-.224 1.013-.493l2.43-2.32 5.03 3.68c.922.51 1.573.242 1.82-.85L23.93 4.77c.32-1.34-.484-1.94-1.38-1.61L1.36 11.29c-1.31.51-1.29 1.24-.24 1.57l5.57 1.74L19.64 6.9c.61-.4 1.17-.18.71.23" />
-                    </svg>
-                  </a>
-
-                  <a
-                    href={share.fb}
-                    className="p-2 rounded-full bg-gradient-to-br from-[#0086C0]/10 to-[#0E374A]/5 border border-slate-200 hover:border-[#0086C0] hover:shadow-md transition-all duration-300"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="Facebook"
-                  >
-                    <svg className="w-4 h-4 text-slate-600" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                    </svg>
-                  </a>
-                </div>
-              </div>
+              <ShareButtonsClient
+                share={share}
+                label={t("share", "Share")}
+                packageSlug={canonical?.split("/").pop() || ""}
+              />
             ) : null}
 
             {mapsHref ? (
@@ -1032,7 +1059,20 @@ export default async function PackageDetail({ params }) {
               dict={dict}
             />
             <TrustBox dict={dict} />
-            <HelpBox title={pkg.title} canonical={canonical} dict={dict} />
+            <HelpBoxClient
+              title={pkg.title}
+              canonical={canonical}
+              labels={{
+                questions: t("questions", "Questions?"),
+                helpText: t("helpText", "Message us on WhatsApp or email — we'll help you plan your trip."),
+                chat: t("chat", "Chat on WhatsApp"),
+                email: t("email", "Email us"),
+                quickResponse: t("quickResponse", "Quick response • 24/7"),
+                emailDetail: t("emailDetail", "Detailed inquiries • Attachments"),
+              }}
+              email={EMAIL_SALES}
+              waNumber={WA_NUMBER}
+            />
           </div>
         </aside>
       </section>
@@ -1068,6 +1108,7 @@ export default async function PackageDetail({ params }) {
                 const rHasPromo = !!p.isPromoActive && typeof p.effectivePrice === "number";
                 const cur = (p.currency || "PEN").toUpperCase();
                 const rPrice = money(rHasPromo ? p.effectivePrice : p.price, cur);
+                const rSummary = safeText(p.description, 160);
 
                 return (
                   <Link
@@ -1076,10 +1117,12 @@ export default async function PackageDetail({ params }) {
                     className="group bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
                   >
                     <div className="relative h-48 overflow-hidden">
-                      <img
+                      <Image
                         src={img}
                         alt={p.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        fill
+                        sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                        className="object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
                       {p.city ? (
@@ -1099,6 +1142,11 @@ export default async function PackageDetail({ params }) {
                       >
                         {p.title}
                       </div>
+                      {rSummary ? (
+                        <p className="text-sm text-slate-600 line-clamp-2 mb-3" style={{ fontFamily: "'Bree Serif', serif" }}>
+                          {rSummary}
+                        </p>
+                      ) : null}
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-[#0086C0]" style={{ fontFamily: "'Bree Serif', serif" }}>
                           {rPrice}

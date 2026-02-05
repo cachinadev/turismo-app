@@ -4,11 +4,13 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { API_BASE } from "@/app/lib/config";
+import { useAdminI18n } from "../i18n/AdminI18nProvider";
 
 const BRAND = process.env.NEXT_PUBLIC_COMPANY_NAME || "Vicuña Adventures";
 const TOKEN_KEY = "token";
 
 function AdminLoginInner() {
+  const { t } = useAdminI18n();
   const router = useRouter();
   const sp = useSearchParams();
 
@@ -55,6 +57,13 @@ function AdminLoginInner() {
     async function check() {
       try {
         if (logout) {
+          const token = tokenStore.get();
+          if (token) {
+            fetch(`${API_BASE}/api/auth/logout`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${token}` },
+            }).catch(() => {});
+          }
           tokenStore.clear();
           if (!alive) return;
           setHadToken(false);
@@ -179,10 +188,10 @@ function AdminLoginInner() {
   if (checking) {
     return (
       <div className="min-h-[50vh] flex items-center justify-center">
-        <p className="text-slate-600 text-sm" aria-live="polite">
-          Checking session…
-        </p>
-      </div>
+          <p className="text-slate-600 text-sm" aria-live="polite">
+            {t("login.checking", "Checking session…")}
+          </p>
+        </div>
     );
   }
 
@@ -195,20 +204,19 @@ function AdminLoginInner() {
         noValidate
       >
         <div>
-          <h1 className="text-xl font-semibold">{BRAND} • Admin access</h1>
+          <h1 className="text-xl font-semibold">
+            {BRAND} • {t("login.title", "Admin access")}
+          </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Sign in to manage packages and bookings.
-          </p>
-          <p className="text-[11px] text-slate-400 mt-2">
-            API: <code>{API_BASE}</code>
+            {t("login.subtitle", "Sign in to manage packages and bookings.")}
           </p>
         </div>
 
         {hadToken && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-            A previous session was detected.{" "}
+            {t("login.previousSession", "A previous session was detected.")}{" "}
             <button type="button" className="underline" onClick={switchAccount}>
-              Use a different account
+              {t("login.useDifferent", "Use a different account")}
             </button>
             .
           </div>
@@ -216,7 +224,7 @@ function AdminLoginInner() {
 
         <fieldset disabled={submitting} className="space-y-4">
           <label className="block">
-            <span className="text-sm text-slate-700">Email</span>
+            <span className="text-sm text-slate-700">{t("login.email", "Email")}</span>
             <input
               className="input mt-1 w-full"
               type="email"
@@ -231,7 +239,7 @@ function AdminLoginInner() {
           </label>
 
           <label className="block">
-            <span className="text-sm text-slate-700">Password</span>
+            <span className="text-sm text-slate-700">{t("login.password", "Password")}</span>
             <div className="relative mt-1">
               <input
                 className="input w-full pr-20"
@@ -248,9 +256,9 @@ function AdminLoginInner() {
                 type="button"
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-slate-600 hover:text-slate-900"
                 onClick={() => setShowPwd((s) => !s)}
-                aria-label={showPwd ? "Hide password" : "Show password"}
+                aria-label={showPwd ? t("login.hide", "Hide") : t("login.show", "Show")}
               >
-                {showPwd ? "Hide" : "Show"}
+                {showPwd ? t("login.hide", "Hide") : t("login.show", "Show")}
               </button>
             </div>
           </label>
@@ -267,26 +275,23 @@ function AdminLoginInner() {
             disabled={submitting}
             aria-busy={submitting ? "true" : "false"}
           >
-            {submitting ? "Signing in…" : "Sign in"}
+            {submitting ? t("login.signingIn", "Signing in…") : t("login.signIn", "Sign in")}
           </button>
 
           <div className="flex items-center justify-between text-xs text-slate-500">
             <button type="button" className="underline" onClick={switchAccount}>
-              Use a different account
+              {t("login.useDifferent", "Use a different account")}
             </button>
             <a
               className="underline"
               href={`/admin/login?logout=1${next ? `&next=${encodeURIComponent(next)}` : ""}`}
-              title="Clear any stored session and reload"
+              title={t("login.logoutReload", "Log out & reload")}
             >
-              Log out & reload
+              {t("login.logoutReload", "Log out & reload")}
             </a>
           </div>
         </fieldset>
 
-        <p className="text-[11px] text-slate-500">
-          Make sure <code>NEXT_PUBLIC_API_URL</code> points to your backend.
-        </p>
       </form>
     </section>
   );

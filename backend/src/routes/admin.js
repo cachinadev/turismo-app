@@ -2,6 +2,7 @@
 const express = require("express");
 const Booking = require("../models/Booking");
 const Package = require("../models/Package");
+const AdminAction = require("../models/AdminAction");
 const auth = require("../middleware/auth");
 
 const router = express.Router();
@@ -93,6 +94,52 @@ router.get("/stats", auth("admin"), async (req, res) => {
     revenueByCurrency,
     byCity: cityMap,
   });
+});
+
+/**
+ * GET /api/admin/actions
+ * Query: page, limit, action, entity, actor, q
+ */
+router.get("/actions", auth("admin"), async (req, res) => {
+  const pageRaw = Number(req.query.page || 1);
+  const limitRaw = Number(req.query.limit || 50);
+  const page = Math.max(1, Number.isFinite(pageRaw) ? pageRaw : 1);
+  const limit = Math.min(200, Math.max(1, Number.isFinite(limitRaw) ? limitRaw : 50));
+  const skip = (page - 1) * limit;
+
+  const q = {};
+  const action = String(req.query.action || "").trim();
+  if (action) q.action = action.slice(0, 80);
+
+  const entity = String(req.query.entity || "").trim();
+  if (entity) q.entity = entity.slice(0, 80);
+
+  const actor = String(req.query.actor || "").trim();
+  if (actor) {
+    q.$or = [
+      { "actor.email": new RegExp(actor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") },
+      { "actor.name": new RegExp(actor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") },
+    ];
+  }
+
+  const text = String(req.query.q || "").trim();
+  if (text) {
+    const rx = new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    q.$or = [
+      ...(q.$or || []),
+      { action: rx },
+      { entity: rx },
+      { entityId: rx },
+    ];
+  }
+
+  const [items, total] = await Promise.all([
+    AdminAction.find(q).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    AdminAction.countDocuments(q),
+  ]);
+
+  const pages = Math.max(1, Math.ceil(total / limit));
+  return res.json({ items, page, pages, total, limit });
 });
 
 module.exports = router;

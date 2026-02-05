@@ -57,7 +57,7 @@ const ADDRESS_REGION = process.env.NEXT_PUBLIC_ADDRESS_REGION || 'PUNO';
 const ADDRESS_COUNTRY = process.env.NEXT_PUBLIC_ADDRESS_COUNTRY || 'PERU';
 const ZIP_CODE = process.env.NEXT_PUBLIC_ZIP_CODE || '21001';
 
-// ✅ Fixed Google Maps URL (precise location)
+// ✅ Fixed Maps URL (precise location)
 const GOOGLE_MAPS_URL =
   process.env.NEXT_PUBLIC_GOOGLE_MAPS_URL ||
   'https://www.google.com/maps/search/CAL.LEONCIO+PRADO+NRO.+194+URB.+CHACARILLA+DEL+LAGO+2+%7C+PUNO+-+PUNO+-+PERU/@-15.8513313,-70.0191831,173m/data=!3m1!1e3?entry=ttu&g_ep=EgoyMDI2MDExMy4wIKXMDSoASAFQAw%3D%3D';

@@ -7,11 +7,13 @@ import { useRouter, useParams } from 'next/navigation';
 import AdminGuard from '@/app/admin/AdminGuard';
 import PackageForm from '@/app/admin/packages/_form';
 import { API_BASE } from '@/app/lib/config';
+import { useAdminI18n } from '@/app/admin/i18n/AdminI18nProvider';
 
 export default function EditPackagePage() {
   const router = useRouter();
   const { id } = useParams() || {};
   const abortRef = useRef(null);
+  const { t } = useAdminI18n();
 
   const [pkg, setPkg] = useState(null);
   const [err, setErr] = useState('');
@@ -31,7 +33,7 @@ export default function EditPackagePage() {
 
   const fetchPkg = useCallback(async (signal) => {
     if (!id) {
-      setErr('Missing package ID.');
+      setErr(t('errors.missingId', 'Missing package ID.'));
       setPkg(null);
       setLoading(false);
       return;
@@ -45,18 +47,18 @@ export default function EditPackagePage() {
       });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json) {
-        const msg = json?.message || (res.status === 404 ? 'Package not found.' : 'Failed to load package.');
+        const msg = json?.message || (res.status === 404 ? t('edit.notFound', 'Package not found.') : t('edit.loadFailed', 'Failed to load package.'));
         throw new Error(msg);
       }
       setPkg(json);
     } catch (e) {
       if (e && e.name === 'AbortError') return;
-      setErr(e?.message || 'An unexpected error occurred while loading.');
+      setErr(e?.message || t('errors.unexpectedLoad', 'An unexpected error occurred while loading.'));
       setPkg(null);
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, t]);
 
   // Load / reload with AbortController
   const runFetch = useCallback(() => {
@@ -84,12 +86,12 @@ export default function EditPackagePage() {
 
   const handleDelete = async () => {
     if (!id || !pkg) return;
-    if (!confirm(`Delete "${pkg?.title || 'this package'}"? This action cannot be undone.`)) return;
+    if (!confirm(`${t('confirm.deletePackage', 'Delete')} "${pkg?.title || t('packages.thisPackage', 'this package')}"? ${t('confirm.cannotUndo', 'This action cannot be undone.')}`)) return;
 
     try {
       setDeleting(true);
       const token = getToken();
-      if (!token) throw new Error('Session expired. Please sign in again.');
+      if (!token) throw new Error(t('errors.sessionExpired', 'Session expired. Please sign in again.'));
 
       const res = await fetch(`${API_BASE}/api/packages/${id}`, {
         method: 'DELETE',
@@ -97,14 +99,14 @@ export default function EditPackagePage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        let msg = data?.message || 'Could not delete the package.';
-        if (res.status === 401) msg = 'Session expired. Please sign in again.';
+        let msg = data?.message || t('errors.deletePackage', 'Could not delete the package.');
+        if (res.status === 401) msg = t('errors.sessionExpired', 'Session expired. Please sign in again.');
         throw new Error(msg);
       }
       router.replace('/admin/dashboard');
       router.refresh();
     } catch (e) {
-      setErr(e?.message || 'An unexpected error occurred while deleting.');
+      setErr(e?.message || t('errors.unexpectedDelete', 'An unexpected error occurred while deleting.'));
     } finally {
       setDeleting(false);
     }
@@ -117,60 +119,60 @@ export default function EditPackagePage() {
           {/* Breadcrumb + actions */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
             <div className="flex items-center gap-2 text-sm text-slate-600">
-              <Link href="/admin/dashboard" className="hover:underline">Dashboard</Link>
+              <Link href="/admin/dashboard" className="hover:underline">{t('admin.dashboard', 'Dashboard')}</Link>
               <span>›</span>
-              <Link href="/admin/packages" className="hover:underline">Packages</Link>
+              <Link href="/admin/packages" className="hover:underline">{t('admin.packages', 'Packages')}</Link>
               <span>›</span>
-              <span className="text-slate-800">{pkg?.title || 'Edit'}</span>
+              <span className="text-slate-800">{pkg?.title || t('edit.breadcrumb', 'Edit')}</span>
               {pkg?.active === false && (
-                <span className="badge !ml-2 !bg-slate-300 !text-slate-700" title="Inactive">
-                  Inactive
+                <span className="badge !ml-2 !bg-slate-300 !text-slate-700" title={t('labels.inactive', 'Inactive')}>
+                  {t('labels.inactive', 'Inactive')}
                 </span>
               )}
               {pkg?.isPromoActive && (
-                <span className="badge !ml-2 bg-amber-500 text-white" title="Promo active">
-                  Promo
+                <span className="badge !ml-2 bg-amber-500 text-white" title={t('labels.promo', 'Promo')}>
+                  {t('labels.promo', 'Promo')}
                 </span>
               )}
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <Link href="/admin/dashboard" className="btn btn-ghost">← Back to Dashboard</Link>
-              <Link href="/admin/packages" className="btn btn-ghost">← Back to Packages</Link>
+              <Link href="/admin/dashboard" className="btn btn-ghost">← {t('actions.backToDashboard', 'Back to Dashboard')}</Link>
+              <Link href="/admin/packages" className="btn btn-ghost">← {t('actions.backToPackages', 'Back to Packages')}</Link>
               <button className="btn" onClick={runFetch} disabled={loading}>
-                {loading ? 'Loading…' : 'Refresh'}
+                {loading ? t('common.loading', 'Loading…') : t('actions.refresh', 'Refresh')}
               </button>
               <button
                 className="btn btn-ghost"
                 onClick={copyPublicLink}
                 disabled={!pkg?.slug}
-                title="Copy public link"
+                title={t('packages.copyPublicLink', 'Copy public link')}
                 aria-live="polite"
               >
-                {copied ? 'Copied!' : 'Copy link'}
+                {copied ? t('actions.copied', 'Copied!') : t('actions.copyLink', 'Copy link')}
               </button>
               <Link
                 href={pkg?.slug ? `/packages/${pkg.slug}` : '#'}
                 className={`btn btn-ghost ${pkg?.slug ? '' : 'pointer-events-none opacity-50'}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                title="Open public page"
+                title={t('actions.openPublic', 'Open public page')}
               >
-                View public ↗
+                {t('actions.viewPublic', 'View public')} ↗
               </Link>
               <button
                 className="btn btn-ghost text-red-700"
                 onClick={handleDelete}
                 disabled={deleting || !pkg}
-                title="Delete package"
+                title={t('actions.delete', 'Delete')}
                 aria-busy={deleting ? 'true' : 'false'}
               >
-                {deleting ? 'Deleting…' : 'Delete'}
+                {deleting ? t('actions.deleting', 'Deleting…') : t('actions.delete', 'Delete')}
               </button>
             </div>
           </div>
 
-          <h1 className="text-2xl font-bold mb-4">Edit package</h1>
+          <h1 className="text-2xl font-bold mb-4">{t('edit.title', 'Edit package')}</h1>
 
           {/* Status / errors */}
           {err && (
@@ -179,7 +181,7 @@ export default function EditPackagePage() {
                 <p className="text-red-600">{err}</p>
                 <div className="mt-2">
                   <button className="btn" onClick={runFetch} disabled={loading}>
-                    Retry
+                    {t('actions.retry', 'Retry')}
                   </button>
                 </div>
               </div>
@@ -220,7 +222,7 @@ export default function EditPackagePage() {
           )}
 
           {/* Not found */}
-          {!loading && !pkg && !err && <p className="text-slate-600">Package not found.</p>}
+          {!loading && !pkg && !err && <p className="text-slate-600">{t('edit.notFound', 'Package not found.')}</p>}
 
           {/* Form */}
           {!loading && pkg && (

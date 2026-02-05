@@ -2,6 +2,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { trackEvent } from '@/app/lib/analytics';
 
 const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'Vicuña Adventures';
 
@@ -42,7 +43,7 @@ export default function TelegramFloat() {
   }, [text]);
 
   return (
-    <>
+    <div className="telegram-float">
       <style jsx global>{`
         @keyframes pulseTelegram {
           0% {
@@ -199,6 +200,13 @@ export default function TelegramFloat() {
               aria-disabled={!href}
               onClick={(e) => {
                 if (!href) e.preventDefault();
+                if (href) {
+                  trackEvent('cta_telegram_click', {
+                    source: 'float',
+                    href,
+                    messageLength: text?.trim()?.length || 0,
+                  });
+                }
               }}
             >
               <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor" aria-hidden="true">
@@ -212,7 +220,10 @@ export default function TelegramFloat() {
 
       {/* Botón Flotante */}
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          setOpen((v) => !v);
+          trackEvent('cta_telegram_toggle', { source: 'float' });
+        }}
         className="pulse-tg fixed bottom-6 right-24 sm:right-28 w-16 h-16 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 hover:scale-110 active:scale-95 z-[9998]"
         style={{ backgroundColor: '#229ED9' }}
         aria-label="Abrir chat de Telegram"
@@ -227,6 +238,6 @@ export default function TelegramFloat() {
           </svg>
         )}
       </button>
-    </>
+    </div>
   );
 }

@@ -17,6 +17,10 @@ const dropApiSuffix = (u) => String(u || "").replace(/\/api\/?$/i, "");
 /** Environment (public) **/
 const RAW_SITE = process.env.NEXT_PUBLIC_SITE_URL || "";
 const RAW_API = process.env.NEXT_PUBLIC_API_URL || "";
+const ENV_WHATSAPP_NUMBER =
+  process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ||
+  process.env.NEXT_PUBLIC_WHATSAPP_OFFICIAL ||
+  "+51953858267";
 
 /** Derived bases **/
 const ENV_SITE = stripSlash(ensureProtocol(RAW_SITE));
@@ -58,9 +62,11 @@ export const withBase = (base, path = "") => {
 
 /** --- WhatsApp / Contact config --- **/
 export const CONTACT_PHONE =
-  process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ||
-  process.env.NEXT_PUBLIC_PHONE ||
-  "+51 953858267";
+  process.env.NEXT_PUBLIC_CONTACT_PHONE_OFFICIAL ||
+  process.env.NEXT_PUBLIC_CONTACT_PHONE ||
+  ENV_WHATSAPP_NUMBER;
+
+export const WHATSAPP_NUMBER = ENV_WHATSAPP_NUMBER || CONTACT_PHONE;
 
 export const WHATSAPP_DEFAULT_MESSAGE =
   process.env.NEXT_PUBLIC_WHATSAPP_DEFAULT_MESSAGE ||
@@ -68,7 +74,7 @@ export const WHATSAPP_DEFAULT_MESSAGE =
 
 /** Helper: build a wa.me link */
 export const buildWhatsAppLink = (
-  phone = CONTACT_PHONE,
+  phone = WHATSAPP_NUMBER,
   text = WHATSAPP_DEFAULT_MESSAGE
 ) => {
   const num = String(phone || "").replace(/[^\d]/g, ""); // digits only

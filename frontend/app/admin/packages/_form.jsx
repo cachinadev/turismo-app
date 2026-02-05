@@ -13,9 +13,14 @@ const EMPTY = {
   country: 'Perú',
   category: 'Tour',
   price: 0,
+  exclusivePrice: '',
   currency: 'PEN',
+  durationDays: 0,
   durationHours: 8,
+  dailyCapacity: '',
   languages: 'es,en',
+  transport: 'Van',
+  guideLanguages: 'es,en',
 
   // Lists (one per line)
   highlights: '',
@@ -27,12 +32,13 @@ const EMPTY = {
   // Status / media
   active: true,
   media: [],
+  brochurePdf: null,
 
   // Map coords (optional)
   lat: '',
   lng: '',
 
-  // New: Google Maps link + points
+  // New: Maps link + points
   mapsUrl: '',
   meetingPoint: '',
   dropoffPoint: '',
@@ -63,6 +69,7 @@ const EMPTY = {
 const CITIES = ['Puno', 'Cusco', 'Lima', 'Arequipa', 'Otros'];
 const CURRENCIES = ['PEN', 'USD'];
 const DIFFICULTY = ['Fácil', 'Moderado', 'Difícil'];
+const TRANSPORT_OPTIONS = ['Van', 'Bus', 'Private van', 'Shared minivan', 'Boat', 'Train', 'Plane', 'Other'];
 const DURATION_MIN = 1;
 const DURATION_MAX = 240;
 
@@ -108,7 +115,7 @@ const makeMapsQueryUrlFromCoords = (lat, lng) => {
 function ItineraryEditor({ value, onChange, disabled }) {
   const list = Array.isArray(value) ? value : [];
 
-  const update = (idx, patch) => {
+  const setStep = (idx, patch) => {
     const next = [...list];
     next[idx] = { ...next[idx], ...patch };
     onChange(next);
@@ -121,8 +128,12 @@ function ItineraryEditor({ value, onChange, disabled }) {
         time: '',
         title: '',
         details: '',
-        durationMin: '',
+        day: '',
+        durationHours: '',
+        durationMinutes: '',
         location: '',
+        transport: '',
+        guideLanguages: '',
         mapsUrl: '',
       },
     ]);
@@ -132,23 +143,21 @@ function ItineraryEditor({ value, onChange, disabled }) {
     onChange(list.filter((_, i) => i !== idx));
   };
 
-  const move = (idx, dir) => {
-    const j = idx + dir;
-    if (j < 0 || j >= list.length) return;
+  const moveStep = (idx, delta) => {
+    const target = idx + delta;
+    if (target < 0 || target >= list.length) return;
     const next = [...list];
-    const [it] = next.splice(idx, 1);
-    next.splice(j, 0, it);
+    const [item] = next.splice(idx, 1);
+    next.splice(target, 0, item);
     onChange(next);
   };
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="font-semibold">Itinerary (start → end)</div>
-          <div className="text-xs text-slate-500">
-            Add steps with time, title, details, duration and optional Google Maps link.
-          </div>
+          <div className="font-semibold">Itinerary steps</div>
+          <div className="text-xs text-slate-500">Capture each step with time, duration, transport, guide languages, location and Maps link.</div>
         </div>
         <button type="button" className="btn btn-ghost" onClick={addStep} disabled={disabled}>
           + Add step
@@ -157,100 +166,83 @@ function ItineraryEditor({ value, onChange, disabled }) {
 
       {list.length === 0 ? (
         <div className="rounded-lg border border-dashed p-4 text-sm text-slate-600 bg-slate-50">
-          No itinerary steps yet. Click <b>Add step</b> to create a timeline.
+          No itinerary steps yet. Click <b>Add step</b> to build the experience.
         </div>
       ) : (
         <div className="space-y-3">
-          {list.map((s, idx) => (
+          {list.map((step, idx) => (
             <div key={idx} className="rounded-2xl border bg-white">
               <div className="p-3 border-b flex items-center justify-between gap-2">
                 <div className="text-sm font-semibold">
-                  Step {idx + 1}{s?.title ? ` • ${s.title}` : ''}
+                  Step {idx + 1} {step?.day ? `· Day ${step.day}` : ''} {step?.title ? `· ${step.title}` : ''}
                 </div>
                 <div className="flex gap-2">
-                  <button type="button" className="btn btn-ghost !px-2" onClick={() => move(idx, -1)} disabled={disabled || idx === 0}>
-                    ↑
-                  </button>
-                  <button type="button" className="btn btn-ghost !px-2" onClick={() => move(idx, +1)} disabled={disabled || idx === list.length - 1}>
-                    ↓
-                  </button>
-                  <button type="button" className="btn btn-ghost text-red-700 hover:bg-red-50" onClick={() => removeStep(idx)} disabled={disabled}>
-                    Remove
-                  </button>
+                  <button type="button" className="btn btn-ghost !px-2" onClick={() => moveStep(idx, -1)} disabled={disabled || idx === 0}>↑</button>
+                  <button type="button" className="btn btn-ghost !px-2" onClick={() => moveStep(idx, +1)} disabled={disabled || idx === list.length - 1}>↓</button>
+                  <button type="button" className="btn btn-ghost text-red-700 hover:bg-red-50" onClick={() => removeStep(idx)} disabled={disabled}>Remove</button>
                 </div>
               </div>
 
-              <div className="p-3 grid grid-cols-1 md:grid-cols-6 gap-3">
-                <div className="md:col-span-1">
-                  <label className="label">Time</label>
-                  <input
-                    className="input"
-                    placeholder="08:00"
-                    value={s.time || ''}
-                    onChange={(e) => update(idx, { time: e.target.value })}
-                    disabled={disabled}
-                  />
+              <div className="p-3 space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+                  <div className="md:col-span-1">
+                    <label className="label">Time</label>
+                    <input className="input" placeholder="08:00" value={step.time || ''} onChange={(e) => setStep(idx, { time: e.target.value })} disabled={disabled} />
+                  </div>
+                  <div className="md:col-span-3">
+                    <label className="label">Title</label>
+                    <input className="input" placeholder="Pickup / Boat ride / Lunch..." value={step.title || ''} onChange={(e) => setStep(idx, { title: e.target.value })} disabled={disabled} />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="label">Location (optional)</label>
+                    <input className="input" placeholder="Uros, Taquile, Plaza de Armas..." value={step.location || ''} onChange={(e) => setStep(idx, { location: e.target.value })} disabled={disabled} />
+                  </div>
                 </div>
 
-                <div className="md:col-span-2">
-                  <label className="label">Title</label>
-                  <input
-                    className="input"
-                    placeholder="Pickup / Boat ride / Lunch..."
-                    value={s.title || ''}
-                    onChange={(e) => update(idx, { title: e.target.value })}
-                    disabled={disabled}
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+                  <div className="md:col-span-1">
+                    <label className="label">Day</label>
+                    <input type="number" min={1} max={365} placeholder="1" className="input" value={step.day ?? ''} onChange={(e) => setStep(idx, { day: e.target.value })} disabled={disabled} />
+                  </div>
+                  <div className="md:col-span-1">
+                    <label className="label">Hours</label>
+                    <input type="number" min={0} max={48} placeholder="1" className="input" value={step.durationHours ?? ''} onChange={(e) => setStep(idx, { durationHours: e.target.value })} disabled={disabled} />
+                  </div>
+                  <div className="md:col-span-1">
+                    <label className="label">Minutes</label>
+                    <input type="number" min={0} max={59} placeholder="30" className="input" value={step.durationMinutes ?? ''} onChange={(e) => setStep(idx, { durationMinutes: e.target.value })} disabled={disabled} />
+                  </div>
+                  <div className="md:col-span-3">
+                    <label className="label text-orange-600">Transport (required)</label>
+                    <select className="input" value={step.transport || ''} onChange={(e) => setStep(idx, { transport: e.target.value })} disabled={disabled}>
+                      <option value="">Select transport...</option>
+                      {TRANSPORT_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
                 </div>
 
-                <div className="md:col-span-1">
-                  <label className="label">Duration (min)</label>
-                  <input
-                    className="input"
-                    type="number"
-                    min={0}
-                    step="1"
-                    placeholder="45"
-                    value={s.durationMin ?? ''}
-                    onChange={(e) => update(idx, { durationMin: e.target.value })}
-                    disabled={disabled}
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="label">Location (optional)</label>
-                  <input
-                    className="input"
-                    placeholder="Uros, Taquile, Plaza de Armas..."
-                    value={s.location || ''}
-                    onChange={(e) => update(idx, { location: e.target.value })}
-                    disabled={disabled}
-                  />
-                </div>
-
-                <div className="md:col-span-4">
+                <div>
                   <label className="label">Details</label>
-                  <input
-                    className="input"
-                    placeholder="What happens in this step..."
-                    value={s.details || ''}
-                    onChange={(e) => update(idx, { details: e.target.value })}
-                    disabled={disabled}
-                  />
+                  <input className="input" placeholder="What happens in this step..." value={step.details || ''} onChange={(e) => setStep(idx, { details: e.target.value })} disabled={disabled} />
                 </div>
 
-                <div className="md:col-span-2">
-                  <label className="label">Google Maps link (optional)</label>
-                  <input
-                    className="input"
-                    placeholder="https://maps.google.com/..."
-                    value={s.mapsUrl || ''}
-                    onChange={(e) => update(idx, { mapsUrl: e.target.value })}
-                    disabled={disabled}
-                  />
-                  {s.mapsUrl && !isValidHttpUrl(s.mapsUrl) && (
-                    <p className="text-xs text-red-600 mt-1">Invalid URL</p>
-                  )}
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                  <div className="md:col-span-3">
+                    <label className="label">Maps link</label>
+                    <input className="input" placeholder="https://maps.app.goo.gl/..." value={step.mapsUrl || ''} onChange={(e) => setStep(idx, { mapsUrl: e.target.value })} disabled={disabled} />
+                    {step.mapsUrl && !isValidHttpUrl(step.mapsUrl) && (
+                      <p className="text-xs text-red-600 mt-1">Invalid URL</p>
+                    )}
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="label">Guide languages</label>
+                    <input className="input" placeholder="es,en,de" value={step.guideLanguages || ''} onChange={(e) => setStep(idx, { guideLanguages: e.target.value })} disabled={disabled} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -267,8 +259,8 @@ export default function PackageForm({ pkg, onSaved }) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
   const [deleteErr, setDeleteErr] = useState('');
-  const [showBrochure, setShowBrochure] = useState(false);
-  const [brochureText, setBrochureText] = useState('');
+  const [brochureUploading, setBrochureUploading] = useState(false);
+  const [brochureErr, setBrochureErr] = useState('');
 
   // Load edit values (or reset for new)
   useEffect(() => {
@@ -285,9 +277,22 @@ export default function PackageForm({ pkg, onSaved }) {
       country: pkg.country ?? 'Perú',
       category: pkg.category ?? 'Tour',
       price: Number(pkg.price ?? 0),
+      exclusivePrice: pkg?.exclusivePrice ?? '',
       currency: CURRENCIES.includes(pkg.currency) ? pkg.currency : 'PEN',
-      durationHours: Number(pkg.durationHours ?? 8),
+      durationHours: (() => {
+        const total = Math.max(0, Number(pkg.durationHours ?? 8));
+        return total - Math.floor(total / 24) * 24;
+      })(),
+      durationDays: (() => {
+        const total = Math.max(0, Number(pkg.durationHours ?? 8));
+        return Math.floor(total / 24);
+      })(),
+      dailyCapacity: (pkg?.dailyCapacity ?? '') + '',
       languages: Array.isArray(pkg.languages) ? pkg.languages.join(',') : 'es,en',
+      transport: pkg?.transport || 'Van',
+      guideLanguages: Array.isArray(pkg?.guideLanguages)
+        ? pkg.guideLanguages.join(', ')
+        : pkg?.guideLanguages || 'es,en',
       highlights: Array.isArray(pkg.highlights) ? pkg.highlights.join('\n') : '',
       includes: Array.isArray(pkg.includes) ? pkg.includes.join('\n') : '',
       excludes: Array.isArray(pkg.excludes) ? pkg.excludes.join('\n') : '',
@@ -297,6 +302,7 @@ export default function PackageForm({ pkg, onSaved }) {
 
       active: Boolean(pkg.active ?? true),
       media: Array.isArray(pkg.media) ? pkg.media : [],
+      brochurePdf: pkg?.brochurePdf || null,
 
       lat: (pkg?.location?.lat ?? pkg?.lat ?? '') + '',
       lng: (pkg?.location?.lng ?? pkg?.lng ?? '') + '',
@@ -328,7 +334,13 @@ export default function PackageForm({ pkg, onSaved }) {
   // Build safe payload the backend expects
   const bodyPayload = useMemo(() => {
     const price = Math.max(0, toNumber(form.price, 0));
-    const duration = clamp(toNumber(form.durationHours, DURATION_MIN), DURATION_MIN, DURATION_MAX);
+    const exclusivePrice = form.exclusivePrice === '' ? undefined : Math.max(0, toNumber(form.exclusivePrice, 0));
+    const durationDays = Math.max(0, toNumber(form.durationDays, 0));
+    const durationHoursInput = clamp(toNumber(form.durationHours, 0), 0, 23);
+    const combinedDuration = durationDays * 24 + durationHoursInput;
+    const duration = clamp(combinedDuration, DURATION_MIN, DURATION_MAX);
+    const dailyCapacity =
+      form.dailyCapacity === '' ? undefined : Math.max(0, toNumber(form.dailyCapacity, 0));
     const currency = CURRENCIES.includes(form.currency) ? form.currency : 'PEN';
 
     // sanitize media
@@ -352,17 +364,54 @@ export default function PackageForm({ pkg, onSaved }) {
     const promoStartAt = form.promoStartAt ? new Date(form.promoStartAt).toISOString() : undefined;
     const promoEndAt = form.promoEndAt ? new Date(form.promoEndAt).toISOString() : undefined;
 
+    const transport = String(form.transport || '').trim();
+    const guideLanguagesList = parseLanguages(form.guideLanguages);
+
     const itinerarySafe = Array.isArray(form.itinerary)
       ? form.itinerary
-          .map((s) => ({
-            time: String(s?.time || '').trim(),
-            title: String(s?.title || '').trim(),
-            details: String(s?.details || '').trim(),
-            location: String(s?.location || '').trim(),
-            durationMin: s?.durationMin === '' ? undefined : Math.max(0, toNumber(s?.durationMin, 0)),
-            mapsUrl: String(s?.mapsUrl || '').trim(),
-          }))
-          .filter((s) => s.title || s.details || s.time || s.location || s.mapsUrl)
+          .map((s) => {
+            const durationMin =
+              s?.durationMin === '' ? undefined : Math.max(0, toNumber(s?.durationMin, 0));
+            const durationHours =
+              s?.durationHours === '' ? undefined : clamp(toNumber(s?.durationHours, 0), 0, 48);
+            const durationMinutes =
+              s?.durationMinutes === '' ? undefined : clamp(toNumber(s?.durationMinutes, 0), 0, 59);
+            const day = s?.day === '' ? undefined : Math.max(1, toNumber(s?.day, 1));
+            const stepTransport = String(s?.transport || '').trim();
+            const stepGuideLanguages = parseLanguages(s?.guideLanguages);
+            const computedDurationMin =
+              durationMin ??
+              (Number.isFinite(durationHours) || Number.isFinite(durationMinutes)
+                ? Math.max(0, (durationHours || 0) * 60 + (durationMinutes || 0))
+                : undefined);
+
+            return {
+              time: String(s?.time || '').trim(),
+              title: String(s?.title || '').trim(),
+              details: String(s?.details || '').trim(),
+              location: String(s?.location || '').trim(),
+              ...(Number.isFinite(computedDurationMin) ? { durationMin: computedDurationMin } : {}),
+              ...(Number.isFinite(day) ? { day } : {}),
+              ...(Number.isFinite(durationHours) ? { durationHours } : {}),
+              ...(Number.isFinite(durationMinutes) ? { durationMinutes } : {}),
+              ...(stepTransport ? { transport: stepTransport } : {}),
+              ...(stepGuideLanguages.length ? { guideLanguages: stepGuideLanguages } : {}),
+              mapsUrl: String(s?.mapsUrl || '').trim(),
+            };
+          })
+          .filter(
+            (s) =>
+              s.title ||
+              s.details ||
+              s.time ||
+              s.location ||
+              s.mapsUrl ||
+              s.transport ||
+              (Array.isArray(s.guideLanguages) && s.guideLanguages.length > 0) ||
+              s.day ||
+              s.durationHours ||
+              s.durationMinutes
+          )
       : [];
 
     const mapsUrl = String(form.mapsUrl || '').trim();
@@ -385,8 +434,13 @@ export default function PackageForm({ pkg, onSaved }) {
 
       price,
       currency,
+      ...(Number.isFinite(exclusivePrice) ? { exclusivePrice } : {}),
       durationHours: duration,
+      ...(Number.isFinite(dailyCapacity) ? { dailyCapacity } : {}),
       languages: parseLanguages(form.languages),
+
+      ...(transport ? { transport } : {}),
+      ...(guideLanguagesList.length ? { guideLanguages: guideLanguagesList } : {}),
 
       highlights: parseLines(form.highlights),
       includes: parseLines(form.includes),
@@ -410,6 +464,7 @@ export default function PackageForm({ pkg, onSaved }) {
       ...(startTimes.length ? { startTimes } : {}),
       ...(availableDays.length ? { availableDays } : {}),
       ...(itinerarySafe.length ? { itinerary: itinerarySafe } : {}),
+      ...(form.brochurePdf?.url ? { brochurePdf: form.brochurePdf } : {}),
 
       isPromo,
       ...(isPromo
@@ -436,7 +491,7 @@ export default function PackageForm({ pkg, onSaved }) {
       if (!bodyPayload.description) throw new Error('Description is required.');
 
       // Validate URLs if present
-      if (form.mapsUrl && !isValidHttpUrl(form.mapsUrl)) throw new Error('Google Maps URL is invalid.');
+      if (form.mapsUrl && !isValidHttpUrl(form.mapsUrl)) throw new Error('Maps URL is invalid.');
       if (Array.isArray(form.itinerary)) {
         for (const s of form.itinerary) {
           if (s?.mapsUrl && !isValidHttpUrl(s.mapsUrl)) throw new Error('One itinerary Maps URL is invalid.');
@@ -540,61 +595,59 @@ export default function PackageForm({ pkg, onSaved }) {
   // Quick helper: if user has coords but no mapsUrl, build one
   const suggestedMapsUrl = useMemo(() => makeMapsQueryUrlFromCoords(form.lat, form.lng), [form.lat, form.lng]);
 
-  // ---- brochure importer (paste → parse → fill)
-  function parseBrochure(textRaw) {
-    const text = String(textRaw || '').replace(/\r/g, '').trim();
+  async function uploadBrochurePdf(file) {
+    setBrochureUploading(true);
+    setBrochureErr('');
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Session expired. Please sign in again.');
 
-    const includesBlock =
-      text.split(/\nIT\s+INCLUDES\s*\n/i)[1]?.split(/\nNOT\s+INCLUDED/i)[0] ?? '';
-    const notInclBlock =
-      text.split(/\nNOT\s+INCLUDED\s*\n/i)[1]?.split(/\nWHAT\s+TO\s+BRING/i)[0] ?? '';
-    const bringBlock =
-      text.split(/\nWHAT\s+TO\s+BRING\??\s*\n/i)[1]?.split(/\n[A-Z ]{3,}:|$/)[0] ?? '';
+      const fd = new FormData();
+      fd.append('file', file);
 
-    // Description: keep top paragraphs before sections
-    const mainDesc =
-      text.split(/\n(?:ITINERARY|DETAILED ITINERARY|IT\s+INCLUDES|NOT\s+INCLUDED|WHAT\s+TO\s+BRING)/i)[0]?.trim() ||
-      text;
+      const res = await fetch(`${API_BASE}/api/brochures/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
 
-    return {
-      description: mainDesc,
-      includes: parseLines(includesBlock),
-      excludes: parseLines(notInclBlock),
-      whatToBring: parseLines(bringBlock),
-    };
-  }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.message || data?.error || 'Could not upload brochure.');
+      }
 
-  function applyBrochure() {
-    const parsed = parseBrochure(brochureText);
-    setForm((prev) => ({
-      ...prev,
-      description: parsed.description || prev.description,
-      includes: [...new Set([...(parseLines(prev.includes)), ...(parsed.includes || [])])].join('\n'),
-      excludes: [...new Set([...(parseLines(prev.excludes)), ...(parsed.excludes || [])])].join('\n'),
-      whatToBring: [...new Set([...(parseLines(prev.whatToBring)), ...(parsed.whatToBring || [])])].join('\n'),
-    }));
+      const fileInfo = data?.file || {};
+      setForm((prev) => ({
+        ...prev,
+        brochurePdf: {
+          url: fileInfo.url,
+          relativePath: fileInfo.relativePath,
+          filename: fileInfo.filename || file?.name,
+          size: fileInfo.size || file?.size,
+          uploadedAt: new Date().toISOString(),
+        },
+      }));
+    } catch (err) {
+      setBrochureErr(err.message || 'Upload error.');
+    } finally {
+      setBrochureUploading(false);
+    }
   }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* LEFT: form */}
       <form onSubmit={submit} className="lg:col-span-2 space-y-6">
-        {/* Basic info */}
+        {/* Information */}
         <div className="card">
           <div className="card-body">
-            <h3 className="text-lg font-semibold">Basic info</h3>
-            <p className="text-sm text-slate-500 mb-4">Title, location and primary details.</p>
+            <h3 className="text-lg font-semibold">Information</h3>
+            <p className="text-sm text-slate-500 mb-4">Title, region and category.</p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="label">Title</label>
-                <input
-                  className="input"
-                  value={form.title}
-                  onChange={(e) => setField('title', e.target.value)}
-                  required
-                  disabled={saving}
-                />
+                <input className="input" value={form.title} onChange={(e) => setField('title', e.target.value)} required disabled={saving} />
               </div>
 
               <div>
@@ -619,13 +672,7 @@ export default function PackageForm({ pkg, onSaved }) {
               </div>
 
               <div className="md:col-span-2 flex items-center gap-2 pt-2">
-                <input
-                  id="active"
-                  type="checkbox"
-                  checked={form.active}
-                  onChange={(e) => setField('active', e.target.checked)}
-                  disabled={saving}
-                />
+                <input id="active" type="checkbox" checked={form.active} onChange={(e) => setField('active', e.target.checked)} disabled={saving} />
                 <label htmlFor="active" className="label m-0">
                   Active
                 </label>
@@ -634,88 +681,119 @@ export default function PackageForm({ pkg, onSaved }) {
           </div>
         </div>
 
-        {/* Location */}
+        {/* Description & content */}
         <div className="card">
-          <div className="card-body space-y-4">
-            <div>
-              <h3 className="text-lg font-semibold">Location</h3>
-              <p className="text-sm text-slate-500">Coordinates, pickup/drop-off, and Google Maps link.</p>
-            </div>
+          <div className="card-body">
+            <h3 className="text-lg font-semibold">Description & content</h3>
+            <p className="text-sm text-slate-500 mb-4">Sell the experience with text, language tags and highlights.</p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="label">Latitude (−90 to 90)</label>
-                <input
-                  className="input"
-                  type="number"
-                  step="any"
-                  min={-90}
-                  max={90}
-                  placeholder="-15.840"
-                  value={form.lat}
-                  onChange={(e) => setField('lat', e.target.value)}
-                  disabled={saving}
-                />
-              </div>
-              <div>
-                <label className="label">Longitude (−180 to 180)</label>
-                <input
-                  className="input"
-                  type="number"
-                  step="any"
-                  min={-180}
-                  max={180}
-                  placeholder="-70.019"
-                  value={form.lng}
-                  onChange={(e) => setField('lng', e.target.value)}
-                  disabled={saving}
-                />
-              </div>
-
               <div className="md:col-span-2">
-                <label className="label">Google Maps link (optional)</label>
-                <input
+                <label className="label">Description</label>
+                <textarea className="input" rows={6} value={form.description} onChange={(e) => setField('description', e.target.value)} disabled={saving} />
+              </div>
+
+              <div>
+                <label className="label">Languages (comma-separated)</label>
+                <input className="input" placeholder="es,en,fr,pt,ru" value={form.languages} onChange={(e) => setField('languages', e.target.value)} disabled={saving} />
+              </div>
+              <div />
+
+              <div>
+                <label className="label">Transport type</label>
+                <select className="input" value={form.transport || ''} onChange={(e) => setField('transport', e.target.value)} disabled={saving}>
+                  <option value="">Select transport</option>
+                  {TRANSPORT_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="label">Guide languages (comma-separated)</label>
+                <input className="input" placeholder="es,en,pt,fr" value={form.guideLanguages} onChange={(e) => setField('guideLanguages', e.target.value)} disabled={saving} />
+              </div>
+
+              <div>
+                <label className="label">Highlights (one per line)</label>
+                <textarea className="input" rows={5} value={form.highlights} onChange={(e) => setField('highlights', e.target.value)} disabled={saving} />
+              </div>
+              <div>
+                <label className="label">Includes</label>
+                <textarea className="input" rows={5} value={form.includes} onChange={(e) => setField('includes', e.target.value)} disabled={saving} />
+              </div>
+              <div>
+                <label className="label">Not included</label>
+                <textarea className="input" rows={5} value={form.excludes} onChange={(e) => setField('excludes', e.target.value)} disabled={saving} />
+              </div>
+              <div>
+                <label className="label">What to bring</label>
+                <textarea className="input" rows={5} value={form.whatToBring} onChange={(e) => setField('whatToBring', e.target.value)} disabled={saving} />
+              </div>
+              <div className="md:col-span-2">
+                <label className="label">Recommendations</label>
+                <textarea
                   className="input"
-                  placeholder="https://www.google.com/maps/..."
-                  value={form.mapsUrl}
-                  onChange={(e) => setField('mapsUrl', e.target.value)}
+                  rows={4}
+                  placeholder="Tip: best season, clothing, altitude notes, cash, etc..."
+                  value={form.recommendations}
+                  onChange={(e) => setField('recommendations', e.target.value)}
                   disabled={saving}
                 />
-                {form.mapsUrl && !isValidHttpUrl(form.mapsUrl) && <p className="text-xs text-red-600 mt-1">Invalid URL</p>}
+              </div>
+            </div>
 
-                {!form.mapsUrl && suggestedMapsUrl && (
-                  <div className="mt-2 text-xs text-slate-600 flex items-center gap-2">
-                    <span>Suggested from coords:</span>
-                    <a className="underline" href={suggestedMapsUrl} target="_blank" rel="noreferrer">
-                      Open
-                    </a>
-                    <button type="button" className="btn btn-ghost !py-1 !px-2" onClick={() => setField('mapsUrl', suggestedMapsUrl)} disabled={saving}>
-                      Use
-                    </button>
-                  </div>
+            <div className="mt-4 rounded-lg border p-3 bg-white">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="font-semibold">PDF comercial (se envía al reservar)</div>
+                  <div className="text-xs text-slate-500">Sube el brochure oficial en PDF para enviar tras la reserva.</div>
+                </div>
+                {form.brochurePdf?.url ? (
+                  <a
+                    href={form.brochurePdf.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs font-semibold text-brand-700 hover:underline"
+                  >
+                    Ver PDF
+                  </a>
+                ) : null}
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <input
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  disabled={saving || brochureUploading}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) uploadBrochurePdf(file);
+                    e.target.value = '';
+                  }}
+                />
+                {form.brochurePdf?.filename ? (
+                  <span className="text-xs text-slate-600">
+                    {form.brochurePdf.filename} {form.brochurePdf.size ? `· ${(form.brochurePdf.size / (1024 * 1024)).toFixed(1)} MB` : ''}
+                  </span>
+                ) : (
+                  <span className="text-xs text-slate-500">Sin PDF cargado.</span>
                 )}
+                {form.brochurePdf?.url ? (
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => setForm((prev) => ({ ...prev, brochurePdf: null }))}
+                    disabled={saving || brochureUploading}
+                  >
+                    Quitar
+                  </button>
+                ) : null}
               </div>
-
-              <div>
-                <label className="label">Meeting / pickup point</label>
-                <input
-                  className="input"
-                  placeholder="Hotel pickup / Plaza de Armas / Port..."
-                  value={form.meetingPoint}
-                  onChange={(e) => setField('meetingPoint', e.target.value)}
-                  disabled={saving}
-                />
-              </div>
-              <div>
-                <label className="label">Drop-off point</label>
-                <input
-                  className="input"
-                  placeholder="Same as pickup / City center..."
-                  value={form.dropoffPoint}
-                  onChange={(e) => setField('dropoffPoint', e.target.value)}
-                  disabled={saving}
-                />
-              </div>
+              {brochureErr ? <div className="mt-2 text-xs text-red-600">{brochureErr}</div> : null}
             </div>
           </div>
         </div>
@@ -724,18 +802,23 @@ export default function PackageForm({ pkg, onSaved }) {
         <div className="card">
           <div className="card-body">
             <h3 className="text-lg font-semibold">Price & duration</h3>
-            <p className="text-sm text-slate-500 mb-4">Currency, base price and hours.</p>
+            <p className="text-sm text-slate-500 mb-4">Currency, base price, exclusive (private) price, and total duration split into days and hours.</p>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div>
                 <label className="label">Price</label>
+                <input className="input" type="number" min={0} step="0.01" value={form.price} onChange={(e) => setField('price', e.target.value)} disabled={saving} />
+              </div>
+              <div>
+                <label className="label">Exclusive tour price</label>
                 <input
                   className="input"
                   type="number"
                   min={0}
                   step="0.01"
-                  value={form.price}
-                  onChange={(e) => setField('price', e.target.value)}
+                  placeholder="Leave empty to use base price"
+                  value={form.exclusivePrice}
+                  onChange={(e) => setField('exclusivePrice', e.target.value)}
                   disabled={saving}
                 />
               </div>
@@ -750,121 +833,25 @@ export default function PackageForm({ pkg, onSaved }) {
                 </select>
               </div>
               <div>
-                <label className="label">Duration (hours)</label>
-                <input
-                  className="input"
-                  type="number"
-                  min={DURATION_MIN}
-                  max={DURATION_MAX}
-                  value={form.durationHours}
-                  onChange={(e) => setField('durationHours', e.target.value)}
-                  disabled={saving}
-                />
+                <label className="label">Days</label>
+                <input className="input" type="number" min={0} step="1" value={form.durationDays} onChange={(e) => setField('durationDays', e.target.value)} disabled={saving} />
+              </div>
+              <div>
+                <label className="label">Hours (0–23)</label>
+                <input className="input" type="number" min={0} max={23} value={form.durationHours} onChange={(e) => setField('durationHours', e.target.value)} disabled={saving} />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Schedule + constraints */}
-        <div className="card">
-          <div className="card-body">
-            <h3 className="text-lg font-semibold">Schedule & constraints</h3>
-            <p className="text-sm text-slate-500 mb-4">Start times, days available, group size, difficulty and age.</p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="label">Start times (comma-separated)</label>
-                <input
-                  className="input"
-                  placeholder="08:00, 14:00"
-                  value={form.startTimes}
-                  onChange={(e) => setField('startTimes', e.target.value)}
-                  disabled={saving}
-                />
-                <p className="text-xs text-slate-500 mt-1">Example: <b>08:00, 14:00</b></p>
-              </div>
-
-              <div>
-                <label className="label">Available days (comma-separated)</label>
-                <input
-                  className="input"
-                  placeholder="Lun,Mar,Mié,Jue,Vie,Sáb,Dom"
-                  value={form.availableDays}
-                  onChange={(e) => setField('availableDays', e.target.value)}
-                  disabled={saving}
-                />
-              </div>
-
-              <div>
-                <label className="label">Difficulty</label>
-                <select className="input" value={form.difficulty} onChange={(e) => setField('difficulty', e.target.value)} disabled={saving}>
-                  {DIFFICULTY.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="label">Age min</label>
-                  <input
-                    className="input"
-                    type="number"
-                    min={0}
-                    step="1"
-                    placeholder="0"
-                    value={form.ageMin}
-                    onChange={(e) => setField('ageMin', e.target.value)}
-                    disabled={saving}
-                  />
-                </div>
-                <div>
-                  <label className="label">Min people</label>
-                  <input
-                    className="input"
-                    type="number"
-                    min={1}
-                    step="1"
-                    placeholder="1"
-                    value={form.minPeople}
-                    onChange={(e) => setField('minPeople', e.target.value)}
-                    disabled={saving}
-                  />
-                </div>
-                <div>
-                  <label className="label">Max people</label>
-                  <input
-                    className="input"
-                    type="number"
-                    min={1}
-                    step="1"
-                    placeholder="15"
-                    value={form.maxPeople}
-                    onChange={(e) => setField('maxPeople', e.target.value)}
-                    disabled={saving}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Promotion */}
+        {/* Promotion / Discount */}
         <div className="card">
           <div className="card-body">
             <h3 className="text-lg font-semibold">Promotion / Discount</h3>
             <p className="text-sm text-slate-500 mb-4">Percent or fixed price, with optional dates.</p>
 
             <div className="flex items-center gap-2 mb-4">
-              <input
-                id="isPromo"
-                type="checkbox"
-                checked={form.isPromo}
-                onChange={(e) => setField('isPromo', e.target.checked)}
-                disabled={saving}
-              />
+              <input id="isPromo" type="checkbox" checked={form.isPromo} onChange={(e) => setField('isPromo', e.target.checked)} disabled={saving} />
               <label htmlFor="isPromo" className="label m-0">
                 Enable promotion
               </label>
@@ -916,85 +903,112 @@ export default function PackageForm({ pkg, onSaved }) {
           </div>
         </div>
 
-        {/* Description & content */}
+        {/* Location */}
         <div className="card">
-          <div className="card-body">
-            <h3 className="text-lg font-semibold">Description & content</h3>
-            <p className="text-sm text-slate-500 mb-4">Full description, languages and lists.</p>
+          <div className="card-body space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold">Location</h3>
+              <p className="text-sm text-slate-500">Coordinates, meeting points and Maps link.</p>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="label">Latitude (−90 to 90)</label>
+                <input className="input" type="number" step="any" min={-90} max={90} placeholder="-15.840" value={form.lat} onChange={(e) => setField('lat', e.target.value)} disabled={saving} />
+              </div>
+              <div>
+                <label className="label">Longitude (−180 to 180)</label>
+                <input className="input" type="number" step="any" min={-180} max={180} placeholder="-70.019" value={form.lng} onChange={(e) => setField('lng', e.target.value)} disabled={saving} />
+              </div>
+
               <div className="md:col-span-2">
-                <label className="label">Description</label>
-                <textarea className="input" rows={6} value={form.description} onChange={(e) => setField('description', e.target.value)} disabled={saving} />
+                <label className="label">Maps link</label>
+                <input className="input" placeholder="https://maps.app.goo.gl/..." value={form.mapsUrl} onChange={(e) => setField('mapsUrl', e.target.value)} disabled={saving} />
+                {form.mapsUrl && !isValidHttpUrl(form.mapsUrl) && <p className="text-xs text-red-600 mt-1">Invalid URL</p>}
+
+                {!form.mapsUrl && suggestedMapsUrl && (
+                  <div className="mt-2 text-xs text-slate-600 flex items-center gap-2">
+                    <span>Suggested from coords:</span>
+                    <a className="underline" href={suggestedMapsUrl} target="_blank" rel="noreferrer">
+                      Open
+                    </a>
+                    <button type="button" className="btn btn-ghost !py-1 !px-2" onClick={() => setField('mapsUrl', suggestedMapsUrl)} disabled={saving}>
+                      Use
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div>
-                <label className="label">Languages (comma-separated)</label>
+                <label className="label">Meeting / pickup point</label>
                 <input
                   className="input"
-                  placeholder="es,en,fr,pt,ru"
-                  value={form.languages}
-                  onChange={(e) => setField('languages', e.target.value)}
+                  placeholder="Hotel pickup / Plaza de Armas / Port..."
+                  value={form.meetingPoint}
+                  onChange={(e) => setField('meetingPoint', e.target.value)}
                   disabled={saving}
                 />
               </div>
-              <div />
-
               <div>
-                <label className="label">Highlights (one per line)</label>
-                <textarea className="input" rows={5} value={form.highlights} onChange={(e) => setField('highlights', e.target.value)} disabled={saving} />
-              </div>
-              <div>
-                <label className="label">Includes</label>
-                <textarea className="input" rows={5} value={form.includes} onChange={(e) => setField('includes', e.target.value)} disabled={saving} />
-              </div>
-              <div>
-                <label className="label">Not included</label>
-                <textarea className="input" rows={5} value={form.excludes} onChange={(e) => setField('excludes', e.target.value)} disabled={saving} />
-              </div>
-              <div>
-                <label className="label">What to bring</label>
-                <textarea className="input" rows={5} value={form.whatToBring} onChange={(e) => setField('whatToBring', e.target.value)} disabled={saving} />
-              </div>
-              <div className="md:col-span-2">
-                <label className="label">Recommendations</label>
-                <textarea
+                <label className="label">Drop-off point</label>
+                <input
                   className="input"
-                  rows={4}
-                  placeholder="Tip: best season, clothing, altitude notes, cash, etc..."
-                  value={form.recommendations}
-                  onChange={(e) => setField('recommendations', e.target.value)}
+                  placeholder="Same as pickup / City center..."
+                  value={form.dropoffPoint}
+                  onChange={(e) => setField('dropoffPoint', e.target.value)}
                   disabled={saving}
                 />
               </div>
             </div>
+          </div>
+        </div>
 
-            {/* Brochure importer */}
-            <div className="mt-4 rounded-lg border p-3 bg-slate-50">
-              <button type="button" className="btn btn-ghost" onClick={() => setShowBrochure((s) => !s)}>
-                {showBrochure ? 'Hide brochure importer' : 'Import from brochure'}
-              </button>
-              {showBrochure && (
-                <div className="mt-3 space-y-2">
-                  <textarea
-                    className="input w-full min-h-[160px]"
-                    placeholder="Paste brochure text here…"
-                    value={brochureText}
-                    onChange={(e) => setBrochureText(e.target.value)}
-                  />
-                  <div className="flex gap-2">
-                    <button type="button" className="btn" onClick={applyBrochure}>
-                      Parse & fill
-                    </button>
-                    <button type="button" className="btn btn-ghost" onClick={() => setBrochureText('')}>
-                      Clear
-                    </button>
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    This parser fills Description / Includes / Not included / What to bring.
-                  </p>
+        {/* Schedule & constraints */}
+        <div className="card">
+          <div className="card-body">
+            <h3 className="text-lg font-semibold">Schedule & constraints</h3>
+            <p className="text-sm text-slate-500 mb-4">Start times, available days, group size and difficulty.</p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="label">Start times (comma-separated)</label>
+                <input className="input" placeholder="08:00, 14:00" value={form.startTimes} onChange={(e) => setField('startTimes', e.target.value)} disabled={saving} />
+                <p className="text-xs text-slate-500 mt-1">
+                  Example: <b>08:00, 14:00</b>
+                </p>
+              </div>
+              <div>
+                <label className="label">Available days (comma-separated)</label>
+                <input className="input" placeholder="Lun,Mar,Mié,Jue,Vie,Sáb,Dom" value={form.availableDays} onChange={(e) => setField('availableDays', e.target.value)} disabled={saving} />
+              </div>
+              <div>
+                <label className="label">Difficulty</label>
+                <select className="input" value={form.difficulty} onChange={(e) => setField('difficulty', e.target.value)} disabled={saving}>
+                  {DIFFICULTY.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-4 gap-3">
+                <div>
+                  <label className="label">Age min</label>
+                  <input className="input" type="number" min={0} step="1" placeholder="0" value={form.ageMin} onChange={(e) => setField('ageMin', e.target.value)} disabled={saving} />
                 </div>
-              )}
+                <div>
+                  <label className="label">Min people</label>
+                  <input className="input" type="number" min={1} step="1" placeholder="1" value={form.minPeople} onChange={(e) => setField('minPeople', e.target.value)} disabled={saving} />
+                </div>
+                <div>
+                  <label className="label">Max people</label>
+                  <input className="input" type="number" min={1} step="1" placeholder="15" value={form.maxPeople} onChange={(e) => setField('maxPeople', e.target.value)} disabled={saving} />
+                </div>
+                <div>
+                  <label className="label">Daily capacity</label>
+                  <input className="input" type="number" min={0} step="1" placeholder="0" value={form.dailyCapacity} onChange={(e) => setField('dailyCapacity', e.target.value)} disabled={saving} />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1002,11 +1016,7 @@ export default function PackageForm({ pkg, onSaved }) {
         {/* Itinerary */}
         <div className="card">
           <div className="card-body">
-            <ItineraryEditor
-              value={form.itinerary}
-              onChange={(next) => setField('itinerary', next)}
-              disabled={saving}
-            />
+            <ItineraryEditor value={form.itinerary} onChange={(next) => setField('itinerary', next)} disabled={saving} />
           </div>
         </div>
 
@@ -1014,7 +1024,7 @@ export default function PackageForm({ pkg, onSaved }) {
         <div className="card">
           <div className="card-body">
             <h3 className="text-lg font-semibold">Images & videos</h3>
-            <p className="text-sm text-slate-500 mb-4">The first image is used as the cover.</p>
+            <p className="text-sm text-slate-500 mb-4">The first image becomes the cover.</p>
 
             <Uploader
               disabled={saving}
@@ -1047,13 +1057,7 @@ export default function PackageForm({ pkg, onSaved }) {
                       </div>
 
                       <div className="p-2 border-t bg-white">
-                        <input
-                          className="input text-xs"
-                          placeholder="Caption (optional)"
-                          value={m.caption || ''}
-                          onChange={(e) => setCaption(i, e.target.value)}
-                          disabled={saving}
-                        />
+                        <input className="input text-xs" placeholder="Caption (optional)" value={m.caption || ''} onChange={(e) => setCaption(i, e.target.value)} disabled={saving} />
                         <div className="mt-1 flex items-center justify-between text-xs">
                           <div className="flex gap-1">
                             <button type="button" className="btn btn-ghost !px-2" onClick={() => moveMedia(i, -1)} disabled={i === 0}>

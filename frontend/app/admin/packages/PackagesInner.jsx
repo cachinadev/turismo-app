@@ -7,6 +7,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import AdminGuard from '../AdminGuard';
 import { mediaUrl } from '@/app/lib/media';
 import { API_BASE } from '@/app/lib/config';
+import { useAdminI18n } from '../i18n/AdminI18nProvider';
 
 const CITIES = ['', 'Puno', 'Cusco', 'Lima', 'Arequipa', 'Others'];
 const LIMIT_OPTIONS = [6, 12, 24, 48];
@@ -21,11 +22,11 @@ const formatCurrency = (value, currency = 'PEN', locale = 'en-US') =>
     maximumFractionDigits: 2,
   }).format(Number(value || 0));
 
-const formatDate = (dateString) => {
+const formatDate = (dateString, locale = 'en-US') => {
   try {
     const date = new Date(dateString);
     if (Number.isNaN(date.getTime())) return '';
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString(locale, {
       year: 'numeric',
       month: 'short',
       day: '2-digit',
@@ -81,16 +82,17 @@ function SkeletonCard() {
 }
 
 function EmptyState({ hasFilters }) {
+  const { t } = useAdminI18n();
   return (
     <div className="card bg-base-100 shadow-sm">
       <div className="card-body text-center py-14">
         <div className="text-5xl mb-4">📦</div>
-        <h3 className="text-xl font-semibold mb-2">No packages found</h3>
+        <h3 className="text-xl font-semibold mb-2">{t('packages.emptyTitle', 'No packages found')}</h3>
         <p className="text-gray-600 mb-6">
-          {hasFilters ? 'Try adjusting your filters to see more results.' : 'Get started by creating your first package.'}
+          {hasFilters ? t('packages.emptyFiltered', 'Try adjusting your filters to see more results.') : t('packages.emptyAll', 'Get started by creating your first package.')}
         </p>
         <Link href="/admin/packages/new" className="btn btn-primary">
-          Create New Package
+          {t('packages.createNew', 'Create New Package')}
         </Link>
       </div>
     </div>
@@ -98,17 +100,19 @@ function EmptyState({ hasFilters }) {
 }
 
 function StatusPills({ isActive, isPromo }) {
+  const { t } = useAdminI18n();
   return (
     <div className="flex items-center gap-2">
       <span className={classNames('badge badge-sm', isActive ? 'badge-success' : 'badge-error')}>
-        {isActive ? 'Active' : 'Inactive'}
+        {isActive ? t('labels.active', 'Active') : t('labels.inactive', 'Inactive')}
       </span>
-      {isPromo ? <span className="badge badge-sm badge-warning">Promo</span> : null}
+      {isPromo ? <span className="badge badge-sm badge-warning">{t('labels.promo', 'Promo')}</span> : null}
     </div>
   );
 }
 
 function Toast({ kind = 'info', message, onClose }) {
+  const { t } = useAdminI18n();
   if (!message) return null;
   const cls =
     kind === 'success'
@@ -124,7 +128,7 @@ function Toast({ kind = 'info', message, onClose }) {
       <div>
         <span>{message}</span>
       </div>
-      <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close">
+      <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label={t('actions.close', 'Close')}>
         ✕
       </button>
     </div>
@@ -140,6 +144,7 @@ function Toast({ kind = 'info', message, onClose }) {
 function CongratsBanner({ onCreateAnother }) {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { t } = useAdminI18n();
 
   const created = searchParams?.get('created');
   const [flash, setFlash] = useState(null);
@@ -154,17 +159,17 @@ function CongratsBanner({ onCreateAnother }) {
         const isFresh = parsed?.t && Date.now() - parsed.t < 10 * 60 * 1000; // 10 min
         if (isFresh) {
           setFlash({
-            title: parsed?.title || 'Package created successfully!',
+            title: parsed?.title || t('packages.createdOk', 'Package created successfully!'),
             slug: parsed?.slug || '',
             id: parsed?.id || '',
           });
         }
         sessionStorage.removeItem(FLASH_KEY);
       } else {
-        setFlash({ title: 'Package created successfully!', slug: '', id: '' });
+        setFlash({ title: t('packages.createdOk', 'Package created successfully!'), slug: '', id: '' });
       }
     } catch {
-      setFlash({ title: 'Package created successfully!', slug: '', id: '' });
+      setFlash({ title: t('packages.createdOk', 'Package created successfully!'), slug: '', id: '' });
       try {
         sessionStorage.removeItem(FLASH_KEY);
       } catch {}
@@ -195,7 +200,7 @@ function CongratsBanner({ onCreateAnother }) {
           <div className="flex items-start gap-3">
             <div className="text-3xl leading-none">🎉</div>
             <div className="space-y-1">
-              <div className="font-semibold text-gray-900">Congratulations! Your package was created.</div>
+              <div className="font-semibold text-gray-900">{t('packages.congrats', 'Congratulations! Your package was created.')}</div>
               <div className="text-sm text-gray-700">
                 <span className="font-medium">{flash.title}</span>
                 {flash.slug ? (
@@ -203,7 +208,7 @@ function CongratsBanner({ onCreateAnother }) {
                     {' '}
                     •{' '}
                     <a className="link link-hover" href={publicUrl} target="_blank" rel="noreferrer">
-                      Open public page
+                      {t('packages.openPublic', 'Open public page')}
                     </a>
                   </>
                 ) : null}
@@ -217,19 +222,19 @@ function CongratsBanner({ onCreateAnother }) {
                         await navigator.clipboard.writeText(publicUrl);
                       } catch {}
                     }}
-                    title="Copy public URL"
+                    title={t('packages.copyPublicUrl', 'Copy public URL')}
                   >
-                    Copy URL
+                    {t('packages.copyUrl', 'Copy URL')}
                   </button>
                 ) : null}
-                <button className="btn btn-sm btn-primary" onClick={onCreateAnother} title="Create another package">
-                  + Create another
+                <button className="btn btn-sm btn-primary" onClick={onCreateAnother} title={t('packages.createAnother', 'Create another package')}>
+                  + {t('packages.createAnotherShort', 'Create another')}
                 </button>
               </div>
             </div>
           </div>
 
-          <button className="btn btn-ghost btn-sm" onClick={() => setFlash(null)} aria-label="Close">
+          <button className="btn btn-ghost btn-sm" onClick={() => setFlash(null)} aria-label={t('actions.close', 'Close')}>
             ✕
           </button>
         </div>
@@ -239,6 +244,7 @@ function CongratsBanner({ onCreateAnother }) {
 }
 
 function ActionButtons({ pkg, onToggleActive, onDelete, onCopyLink, togglingId, deletingId }) {
+  const { t } = useAdminI18n();
   const id = pkg._id || pkg.id;
   const isActive = pkg.active !== false;
 
@@ -248,16 +254,16 @@ function ActionButtons({ pkg, onToggleActive, onDelete, onCopyLink, togglingId, 
         onClick={() => onToggleActive(pkg)}
         disabled={togglingId === id}
         className={classNames('btn btn-sm flex-1 min-w-0', isActive ? 'btn-warning' : 'btn-success')}
-        title={isActive ? 'Deactivate package' : 'Activate package'}
+        title={isActive ? t('packages.deactivate', 'Deactivate package') : t('packages.activate', 'Activate package')}
       >
-        {togglingId === id ? <span className="loading loading-dots loading-sm" /> : isActive ? 'Deactivate' : 'Activate'}
+        {togglingId === id ? <span className="loading loading-dots loading-sm" /> : isActive ? t('packages.deactivateShort', 'Deactivate') : t('packages.activateShort', 'Activate')}
       </button>
 
-      <Link href={`/admin/packages/${id}/edit`} className="btn btn-sm btn-primary flex-1 min-w-0" title="Edit package">
-        Edit
+      <Link href={`/admin/packages/${id}/edit`} className="btn btn-sm btn-primary flex-1 min-w-0" title={t('actions.edit', 'Edit')}>
+        {t('actions.edit', 'Edit')}
       </Link>
 
-      <button onClick={() => onCopyLink(pkg.slug)} className="btn btn-sm btn-ghost" title="Copy public link">
+      <button onClick={() => onCopyLink(pkg.slug)} className="btn btn-sm btn-ghost" title={t('packages.copyPublicLink', 'Copy public link')}>
         🔗
       </button>
 
@@ -265,15 +271,18 @@ function ActionButtons({ pkg, onToggleActive, onDelete, onCopyLink, togglingId, 
         onClick={() => onDelete(id, pkg.title)}
         disabled={deletingId === id}
         className="btn btn-sm btn-error flex-1 min-w-0"
-        title="Delete package"
+        title={t('actions.delete', 'Delete')}
       >
-        {deletingId === id ? <span className="loading loading-dots loading-sm" /> : 'Delete'}
+        {deletingId === id ? <span className="loading loading-dots loading-sm" /> : t('actions.delete', 'Delete')}
       </button>
     </div>
   );
 }
 
 export default function PackagesInner() {
+  const { t, lang } = useAdminI18n();
+  const locale = lang === 'en' ? 'en-US' : 'es-PE';
+
   // Pagination state
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(12);
@@ -344,7 +353,7 @@ export default function PackagesInner() {
           data = {};
         }
 
-        if (!response.ok) throw new Error(data.message || 'Failed to fetch packages');
+        if (!response.ok) throw new Error(data.message || t('errors.loadPackages', 'Could not load packages. Please try again.'));
 
         const list = Array.isArray(data) ? data : data.items || [];
         const processed = list.map((pkg) => ({
@@ -365,7 +374,7 @@ export default function PackagesInner() {
         setTotal(data.total || filtered.length);
       } catch (err) {
         if (err?.name !== 'AbortError') {
-          setError(err?.message || 'Could not load packages. Please try again.');
+          setError(err?.message || t('errors.loadPackages', 'Could not load packages. Please try again.'));
           setItems([]);
           setTotal(0);
         }
@@ -373,7 +382,7 @@ export default function PackagesInner() {
         if (!abortController.signal.aborted) setLoading(false);
       }
     }, 200);
-  }, [appliedFilters, page, limit]);
+  }, [appliedFilters, page, limit, t]);
 
   useEffect(() => {
     fetchData();
@@ -411,12 +420,12 @@ export default function PackagesInner() {
   const handleDelete = async (id, title) => {
     if (!id) return;
     const confirmed = window.confirm(
-      `Are you sure you want to delete "${title || 'this package'}"? This action cannot be undone.`
+      `${t('confirm.deletePackage', 'Delete')} "${title || t('packages.thisPackage', 'this package')}"? ${t('confirm.cannotUndo', 'This action cannot be undone.')}`
     );
     if (!confirmed) return;
 
     const token = getToken();
-    if (!token) return setError('Session expired. Please sign in again.');
+    if (!token) return setError(t('errors.sessionExpired', 'Session expired. Please sign in again.'));
 
     try {
       setDeletingId(id);
@@ -430,13 +439,13 @@ export default function PackagesInner() {
         data = await response.json();
       } catch {}
 
-      if (!response.ok) throw new Error(data.message || 'Failed to delete package');
+      if (!response.ok) throw new Error(data.message || t('errors.deletePackage', 'Failed to delete package'));
 
       setItems((prev) => prev.filter((p) => (p._id || p.id) !== id));
       setTotal((t) => Math.max(0, t - 1));
-      showToast('Package deleted.', 'success');
+      showToast(t('toast.packageDeleted', 'Package deleted.'), 'success');
     } catch (err) {
-      setError(err?.message || 'Delete failed. Please try again.');
+      setError(err?.message || t('errors.deleteFailed', 'Delete failed. Please try again.'));
     } finally {
       setDeletingId(null);
     }
@@ -447,7 +456,7 @@ export default function PackagesInner() {
     if (!id) return;
 
     const token = getToken();
-    if (!token) return setError('Session expired. Please sign in again.');
+    if (!token) return setError(t('errors.sessionExpired', 'Session expired. Please sign in again.'));
 
     try {
       setTogglingId(id);
@@ -464,12 +473,12 @@ export default function PackagesInner() {
         data = await response.json();
       } catch {}
 
-      if (!response.ok) throw new Error(data.message || 'Failed to update package status');
+      if (!response.ok) throw new Error(data.message || t('errors.updatePackageStatus', 'Failed to update package status'));
 
       setItems((prev) => prev.map((p) => ((p._id || p.id) === id ? { ...p, active: newActive } : p)));
-      showToast(newActive ? 'Package activated.' : 'Package deactivated.', 'success');
+      showToast(newActive ? t('toast.packageActivated', 'Package activated.') : t('toast.packageDeactivated', 'Package deactivated.'), 'success');
     } catch (err) {
-      setError(err?.message || 'Status update failed. Please try again.');
+      setError(err?.message || t('errors.updatePackageStatus', 'Status update failed. Please try again.'));
     } finally {
       setTogglingId(null);
     }
@@ -477,12 +486,12 @@ export default function PackagesInner() {
 
   const handleCopyLink = async (slug) => {
     try {
-      if (!slug) return setError('No slug available for this package');
+      if (!slug) return setError(t('errors.noSlug', 'No slug available for this package'));
       const publicUrl = `${window.location.origin}/packages/${slug}`;
       await navigator.clipboard.writeText(publicUrl);
-      showToast('Package link copied!', 'success');
+      showToast(t('toast.linkCopied', 'Package link copied!'), 'success');
     } catch {
-      setError('Failed to copy link to clipboard');
+      setError(t('errors.copyFailed', 'Failed to copy link to clipboard'));
     }
   };
 
@@ -493,27 +502,30 @@ export default function PackagesInner() {
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold text-gray-900">Packages</h1>
+              <h1 className="text-3xl font-bold text-gray-900">{t('admin.packages', 'Packages')}</h1>
               {!loading ? (
-                <span className="badge badge-neutral badge-lg">{total} total</span>
+                <span className="badge badge-neutral badge-lg">{total} {t('labels.total', 'total')}</span>
               ) : (
                 <span className="badge badge-neutral badge-lg opacity-60">…</span>
               )}
             </div>
-            <p className="text-gray-600">Create, edit, activate and manage promotions.</p>
+            <p className="text-gray-600">{t('packages.subtitle', 'Create, edit, activate and manage promotions.')}</p>
           </div>
 
           <div className="flex flex-wrap gap-2">
+            <Link href="/admin/dashboard" className="btn btn-ghost">
+              ← {t('actions.backToDashboard', 'Back to Dashboard')}
+            </Link>
             <Link href="/admin/packages/new" className="btn btn-primary gap-2">
-              <span>+</span> New Package
+              <span>+</span> {t('packages.new', 'New Package')}
             </Link>
             <button
               className="btn btn-ghost"
               onClick={() => fetchData()}
-              title="Refresh list"
+              title={t('actions.refresh', 'Refresh')}
               disabled={loading}
             >
-              {loading ? <span className="loading loading-spinner loading-sm" /> : 'Refresh'}
+              {loading ? <span className="loading loading-spinner loading-sm" /> : t('actions.refresh', 'Refresh')}
             </button>
           </div>
         </div>
@@ -530,13 +542,13 @@ export default function PackagesInner() {
           <div className="card-body">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
               <div>
-                <h3 className="card-title text-lg">Filters</h3>
-                <p className="text-sm text-gray-500">Search and narrow down your package list.</p>
+                <h3 className="card-title text-lg">{t('packages.filtersTitle', 'Filters')}</h3>
+                <p className="text-sm text-gray-500">{t('packages.filtersHelp', 'Search and narrow down your package list.')}</p>
               </div>
 
               {hasFilters ? (
                 <div className="text-sm text-gray-600">
-                  <span className="badge badge-outline">Filtered</span>
+                  <span className="badge badge-outline">{t('packages.filtered', 'Filtered')}</span>
                 </div>
               ) : null}
             </div>
@@ -544,11 +556,11 @@ export default function PackagesInner() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end mt-4">
               <div className="form-control lg:col-span-2">
                 <label className="label">
-                  <span className="label-text font-medium">Search</span>
+                  <span className="label-text font-medium">{t('packages.searchLabel', 'Search')}</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="Title or description…"
+                  placeholder={t('packages.searchPlaceholder', 'Title or description…')}
                   className="input input-bordered"
                   value={filters.query}
                   onChange={(e) => setFilters((p) => ({ ...p, query: e.target.value }))}
@@ -558,18 +570,25 @@ export default function PackagesInner() {
 
               <div className="form-control">
                 <label className="label">
-                  <span className="label-text font-medium">City</span>
+                  <span className="label-text font-medium">{t('labels.city', 'City')}</span>
                 </label>
                 <select
                   className="select select-bordered"
                   value={filters.city}
                   onChange={(e) => setFilters((p) => ({ ...p, city: e.target.value }))}
                 >
-                  {CITIES.map((city) => (
-                    <option key={city || 'all'} value={city}>
-                      {city || 'All Cities'}
-                    </option>
-                  ))}
+                  {CITIES.map((city) => {
+                    const label = city
+                      ? city === 'Others'
+                        ? t('packages.cityOthers', 'Others')
+                        : city
+                      : t('packages.allCities', 'All Cities');
+                    return (
+                      <option key={city || 'all'} value={city}>
+                        {label}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -581,7 +600,7 @@ export default function PackagesInner() {
                     checked={filters.onlyActive}
                     onChange={(e) => setFilters((p) => ({ ...p, onlyActive: e.target.checked }))}
                   />
-                  <span className="label-text font-medium">Active</span>
+                  <span className="label-text font-medium">{t('labels.active', 'Active')}</span>
                 </label>
               </div>
 
@@ -593,16 +612,16 @@ export default function PackagesInner() {
                     checked={filters.onlyPromo}
                     onChange={(e) => setFilters((p) => ({ ...p, onlyPromo: e.target.checked }))}
                   />
-                  <span className="label-text font-medium">Promo</span>
+                  <span className="label-text font-medium">{t('labels.promo', 'Promo')}</span>
                 </label>
               </div>
 
               <div className="flex gap-2">
                 <button onClick={applyFilters} className="btn btn-primary flex-1">
-                  Apply
+                  {t('actions.apply', 'Apply')}
                 </button>
                 <button onClick={clearFilters} className="btn btn-ghost">
-                  Clear
+                  {t('actions.clear', 'Clear')}
                 </button>
               </div>
             </div>
@@ -613,11 +632,12 @@ export default function PackagesInner() {
         {!loading && items.length > 0 ? (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="text-gray-600">
-              Showing <span className="font-medium">{items.length}</span> of{' '}
+              {t('packages.showing', 'Showing')} <span className="font-medium">{items.length}</span> {t('packages.of', 'of')}{' '}
               <span className="font-medium">{total}</span>
             </div>
             <div className="text-sm text-gray-500">
-              Page <span className="font-medium">{page}</span> of <span className="font-medium">{pages}</span>
+              {t('labels.page', 'Page')} <span className="font-medium">{page}</span> {t('packages.of', 'of')}{' '}
+              <span className="font-medium">{pages}</span>
             </div>
           </div>
         ) : null}
@@ -660,16 +680,18 @@ export default function PackagesInner() {
                           {pkg.title}
                         </div>
                         <div className="text-white/80 text-xs mt-1">
-                          {pkg.city || '—'} • Created {formatDate(pkg.createdAt) || '—'}
-                        </div>
+                        {pkg.city || '—'} • {t('labels.created', 'Created')} {formatDate(pkg.createdAt, locale) || '—'}
                       </div>
+                    </div>
 
                       <div className="text-right shrink-0">
                         <div className="text-white font-bold text-xl drop-shadow">
-                          {formatCurrency(pricing.currentPrice, pricing.currency)}
+                          {formatCurrency(pricing.currentPrice, pricing.currency, locale)}
                         </div>
                         {pricing.isPromoActive && pricing.discountPercentage > 0 ? (
-                          <div className="badge badge-success badge-sm mt-1">{pricing.discountPercentage}% OFF</div>
+                          <div className="badge badge-success badge-sm mt-1">
+                            {pricing.discountPercentage}% {t('packages.off', 'OFF')}
+                          </div>
                         ) : null}
                       </div>
                     </div>
@@ -677,7 +699,7 @@ export default function PackagesInner() {
 
                   <div className="card-body">
                     <p className="text-gray-600 text-sm line-clamp-3">
-                      {pkg.description || 'No description provided'}
+                      {pkg.description || t('packages.noDescription', 'No description provided')}
                     </p>
 
                     <div className="mt-2">
@@ -701,12 +723,13 @@ export default function PackagesInner() {
         {!loading && items.length > 0 ? (
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-6">
             <div className="text-sm text-gray-600">
-              Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, total)} of {total}
+              {t('packages.showing', 'Showing')} {((page - 1) * limit) + 1} {t('packages.to', 'to')}{' '}
+              {Math.min(page * limit, total)} {t('packages.of', 'of')} {total}
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600">Show:</span>
+                <span className="text-sm text-gray-600">{t('packages.show', 'Show')}:</span>
                 <select
                   className="select select-bordered select-sm"
                   value={limit}
@@ -731,7 +754,9 @@ export default function PackagesInner() {
                 >
                   «
                 </button>
-                <button className="join-item btn btn-sm btn-active">Page {page}</button>
+                <button className="join-item btn btn-sm btn-active">
+                  {t('labels.page', 'Page')} {page}
+                </button>
                 <button
                   onClick={() => setPage((p) => Math.min(pages, p + 1))}
                   disabled={page === pages}

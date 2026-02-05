@@ -32,6 +32,15 @@ export function middleware(req) {
 
   const segments = pathname.split('/').filter(Boolean);
   const firstSegment = segments[0];
+  const secondSegment = segments[1];
+
+  // 1b) If localized admin path like /en/admin/... -> redirect to /admin/...
+  if (SUPPORTED_LOCALES.includes(firstSegment) && secondSegment === 'admin') {
+    const redirectUrl = req.nextUrl.clone();
+    const rest = segments.slice(2).join('/');
+    redirectUrl.pathname = rest ? `/admin/${rest}` : '/admin';
+    return NextResponse.redirect(redirectUrl);
+  }
 
   /* ------------------------------------------------------
    * Case 1️⃣: Already localized (starts with /en, /es, /fr, etc.)

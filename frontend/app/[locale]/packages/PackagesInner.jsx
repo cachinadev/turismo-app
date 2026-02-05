@@ -3,10 +3,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams, useParams } from 'next/navigation';
 import { API_BASE } from '@/app/lib/config';
 import { mediaUrl } from '@/app/lib/media';
-import 'leaflet/dist/leaflet.css';
 import { Search, MapPin, Star, Clock, Filter, ChevronDown, ChevronUp, Navigation, X, RefreshCcw } from 'lucide-react';
 
 /* ---------------- i18n ---------------- */
@@ -76,122 +77,23 @@ function classNames(...xs) {
   return xs.filter(Boolean).join(' ');
 }
 
-/* ---------------- Map ---------------- */
-function PackagesMap({ packages = [], center = CITY_CENTER.Otros, zoom = 5, selectedId, onSelect, onBoundsChanged }) {
-  const mapElRef = useRef(null);
-  const mapInstanceRef = useRef(null);
-  const LRef = useRef(null);
-  const markersRef = useRef([]);
+const MapLoading = ({ label }) => (
+  <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+    <div className="h-[600px] flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl">
+      <div className="text-center">
+        <MapPin size={48} className="mx-auto mb-4" style={{ color: '#0086C0' }} />
+        <p className="font-bree text-xl mb-2" style={{ color: '#0E374A' }}>
+          {label}
+        </p>
+      </div>
+    </div>
+  </div>
+);
 
-  // init once
-  useEffect(() => {
-    let mounted = true;
-
-    (async () => {
-      const L = (await import('leaflet')).default;
-      if (!mounted) return;
-      LRef.current = L;
-
-      const map = L.map(mapElRef.current, {
-        center: [center.lat, center.lng],
-        zoom,
-        scrollWheelZoom: true,
-      });
-
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 18,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      }).addTo(map);
-
-      const report = () => {
-        const b = map.getBounds();
-        onBoundsChanged?.({
-          n: b.getNorth(),
-          s: b.getSouth(),
-          e: b.getEast(),
-          w: b.getWest(),
-        });
-      };
-      map.on('moveend', report);
-      setTimeout(report, 0);
-
-      mapInstanceRef.current = map;
-    })();
-
-    return () => {
-      mounted = false;
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // update markers
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    const L = LRef.current;
-    if (!map || !L) return;
-
-    markersRef.current.forEach((m) => m.remove());
-    markersRef.current = [];
-
-    packages.forEach((p) => {
-      const pid = p._id || p.id || p.slug;
-      const isSel = pid === selectedId;
-
-      const thumb = (p.markerThumb || '').replace(/'/g, "\\'");
-      const price = money(Number(p.effectivePrice ?? p.price), p.currency);
-
-      const icon = L.divIcon({
-        className: 'thumb-marker',
-        html: `
-          <div class="thumb-wrap ${isSel ? 'thumb-selected' : ''}">
-            <div class="thumb-img" style="background-image:url('${thumb}')"></div>
-            <div class="thumb-price">${price}</div>
-          </div>
-        `,
-        iconSize: [78, 82],
-        iconAnchor: [39, 82],
-        popupAnchor: [0, -90],
-      });
-
-      const marker = L.marker([p.location.lat, p.location.lng], { icon })
-        .addTo(map)
-        .on('click', () => onSelect?.(p));
-
-      marker.bindTooltip(
-        `<div style="font-weight:700">${p.title || 'Package'}</div>
-         <div style="font-size:12px;opacity:.85">${p.city || ''}</div>`,
-        { direction: 'top', offset: L.point(0, -78), opacity: 0.9 }
-      );
-
-      markersRef.current.push(marker);
-    });
-
-    if (packages.length > 0) {
-      const bounds = L.latLngBounds(packages.map((p) => [p.location.lat, p.location.lng]));
-      if (bounds.isValid()) map.fitBounds(bounds.pad(0.18), { animate: false });
-    }
-
-    const styleId = 'thumb-marker-style';
-    if (!document.getElementById(styleId)) {
-      const style = document.createElement('style');
-      style.id = styleId;
-      style.innerHTML = `
-        .thumb-marker .thumb-wrap{position:relative;width:78px;height:78px;border-radius:16px;box-shadow:0 6px 22px rgba(14,55,74,.18);overflow:hidden;border:2px solid rgba(255,255,255,.95);background:linear-gradient(180deg,rgba(255,255,255,0.88),rgba(255,255,255,0.78))}
-        .thumb-marker .thumb-wrap.thumb-selected{box-shadow:0 10px 30px rgba(0,134,192,0.28);transform:translateY(-3px)}
-        .thumb-marker .thumb-img{width:100%;height:100%;background-size:cover;background-position:center;transform:scale(1.0);transition:transform .25s cubic-bezier(.2,.9,.2,1)}
-        .thumb-marker .thumb-wrap:hover .thumb-img{transform:scale(1.08)}
-        .thumb-marker .thumb-price{position:absolute;left:6px;bottom:6px;padding:4px 8px;border-radius:999px;background:linear-gradient(90deg,#0086C0,#0E374A);color:#fff;font-size:11px;font-weight:800;box-shadow:0 6px 14px rgba(14,55,74,.18)}
-      `;
-      document.head.appendChild(style);
-    }
-  }, [packages, selectedId, onSelect]);
-
-  return <div ref={mapElRef} className="h-[600px] w-full rounded-2xl shadow-sm border border-slate-200 overflow-hidden" />;
-}
+const PackagesMapLazy = dynamic(() => import('@/app/components/PackagesMapLeaflet'), {
+  ssr: false,
+  loading: () => <MapLoading label="Cargando mapa..." />,
+});
 
 /* ---------------- Main ---------------- */
 export default function PackagesInner({ initial }) {
@@ -782,26 +684,19 @@ export default function PackagesInner({ initial }) {
             ) : view === 'map' ? (
               /* Map view */
               !isClient ? (
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-                  <div className="h-[600px] flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl">
-                    <div className="text-center">
-                      <MapPin size={48} className="mx-auto mb-4" style={{ color: '#0086C0' }} />
-                      <p className="font-bree text-xl mb-2" style={{ color: '#0E374A' }}>
-                        {tr(tt, 'loadingMap', 'Cargando mapa...')}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                <MapLoading label={tr(tt, 'loadingMap', 'Cargando mapa...')} />
               ) : (
                 <div className="relative">
                   <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6">
-                    <PackagesMap
+                    <PackagesMapLazy
                       packages={mapPackages}
                       onSelect={(p) => setSelectedId(p?._id || p?.id || p?.slug)}
                       selectedId={selectedId}
                       onBoundsChanged={(b) => setMapBounds(b)}
                       center={CITY_CENTER.Otros}
                       zoom={5}
+                      formatPrice={(v, c) => money(v, c)}
+                      titleFallback={tr(tt, 'package', 'Package')}
                     />
                   </div>
 
@@ -829,7 +724,13 @@ export default function PackagesInner({ initial }) {
                   {selectedPkg && (
                     <div className="absolute top-6 left-6 z-[1002] w-[320px] bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200">
                       <div className="relative h-44">
-                        <img src={imgListFrom(selectedPkg)[0]} alt={selectedPkg.title} className="w-full h-full object-cover" />
+                        <Image
+                          src={imgListFrom(selectedPkg)[0]}
+                          alt={selectedPkg.title}
+                          fill
+                          sizes="320px"
+                          className="object-cover"
+                        />
                         <button
                           onClick={() => setSelectedId(null)}
                           className="absolute top-3 left-3 w-9 h-9 bg-white/90 backdrop-blur rounded-md flex items-center justify-center shadow-lg hover:bg-white transition-colors font-bold text-xl text-gray-700"
@@ -929,12 +830,12 @@ export default function PackagesInner({ initial }) {
 
                         {/* IMAGE (reduced height) */}
                         <div className="relative h-40 overflow-hidden flex-shrink-0">
-                          <img
+                          <Image
                             src={images[0]}
                             alt={p.title}
-                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                            loading="lazy"
-                            decoding="async"
+                            fill
+                            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                            className="object-cover transition-transform duration-500 group-hover:scale-105"
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/0 to-transparent opacity-70" />
 
@@ -1022,12 +923,7 @@ export default function PackagesInner({ initial }) {
                               </>
                             )}
 
-                            <div className="flex items-center gap-3 mt-2 text-[11px] text-gray-500">
-                              <div className="flex items-center gap-1">
-                                <div className="w-2 h-2 rounded-full bg-[#0086C0]" />
-                                <span className="font-tequilla">{tr(tt, 'includesTaxes', 'Incluye impuestos')}</span>
-                              </div>
-                            </div>
+                            {/* taxes note removed */}
                           </div>
 
                           {/* FOOTER (slimmer CTA + smaller mascot) */}
@@ -1042,13 +938,7 @@ export default function PackagesInner({ initial }) {
                               </div>
                             </div>
 
-                            {/* optional small mascot */}
-                            <div className="mt-2 flex items-center justify-end">
-                              <div className="relative w-9 h-9">
-                                <div className="absolute inset-0 bg-gradient-to-br from-[#0086C0]/20 to-[#0E374A]/20 rounded-full" />
-                                <img src={randomVicuna} alt="Vicuña" className="absolute inset-0 w-full h-full object-contain p-1.5 opacity-90" />
-                              </div>
-                            </div>
+                            {/* mascot removed */}
                           </div>
                         </div>
                       </Link>

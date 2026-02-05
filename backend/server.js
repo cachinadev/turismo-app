@@ -20,6 +20,10 @@ const bookingRoutes = require("./src/routes/bookings");
 const uploadRoutes = require("./src/routes/uploads");
 const contactRoutes = require("./src/routes/contact");
 const complaintsRoutes = require("./src/routes/complaints");
+const eventsRoutes = require("./src/routes/events");
+const testimonialRoutes = require("./src/routes/testimonials");
+const adminRoutes = require("./src/routes/admin");
+const brochuresRoutes = require("./src/routes/brochures");
 
 const app = express();
 
@@ -199,6 +203,10 @@ async function start() {
   app.use("/api/uploads", uploadRoutes);
   app.use("/api/contact", contactRoutes);
   app.use("/api/complaints", complaintsRoutes);
+  app.use("/api/events", eventsRoutes);
+  app.use("/api/testimonials", testimonialRoutes);
+  app.use("/api/admin", adminRoutes);
+  app.use("/api/brochures", brochuresRoutes);
 
   /* 404 para API */
   app.use((req, res, next) => {

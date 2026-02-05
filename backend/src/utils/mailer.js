@@ -235,7 +235,7 @@ function getPaymentInfo() {
       },
     ],
     // WhatsApp: por defecto usa el primer número (Jorge C.). Puedes cambiarlo con PAYMENT_WA_DEFAULT
-    waDefault: process.env.PAYMENT_WA_DEFAULT || "982397386",
+    waDefault: process.env.PAYMENT_WA_DEFAULT || "51953858267",
   };
 }
 

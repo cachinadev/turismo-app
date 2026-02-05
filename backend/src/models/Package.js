@@ -101,17 +101,52 @@ function normalizeItinerary(input) {
         ? undefined
         : Math.max(0, Number(durationMinRaw || 0));
 
+    const durationHoursRaw = s.durationHours;
+    const durationHours =
+      durationHoursRaw === "" || durationHoursRaw === null || durationHoursRaw === undefined
+        ? undefined
+        : clamp(Math.max(0, Number(durationHoursRaw || 0)), 0, 48);
+
+    const durationMinutesRaw = s.durationMinutes;
+    const durationMinutes =
+      durationMinutesRaw === "" || durationMinutesRaw === null || durationMinutesRaw === undefined
+        ? undefined
+        : clamp(Math.max(0, Number(durationMinutesRaw || 0)), 0, 59);
+
+    const dayRaw = s.day;
+    const day =
+      dayRaw === "" || dayRaw === null || dayRaw === undefined
+        ? undefined
+        : clamp(Math.max(1, Number(dayRaw || 0)), 1, 365);
+
+    const transport = String(s.transport || "").trim();
+    const guideNotes = String(s.guideNotes || "").trim();
+    const guideLanguages = cleanStringArray(parseMaybeStringList(s.guideLanguages));
+
     // drop empty steps
-    if (!time && !title && !details && !location && !mapsUrl) continue;
+    if (!time && !title && !details && !location && !mapsUrl && !transport && !guideNotes && !guideLanguages.length && !day && durationHours == null && durationMinutes == null) continue;
     // keep only valid http(s) if provided
     if (mapsUrl && !isValidHttpUrl(mapsUrl)) continue;
+
+    const computedDurationMin =
+      Number.isFinite(durationMin)
+        ? durationMin
+        : Number.isFinite(durationHours) || Number.isFinite(durationMinutes)
+        ? Math.max(0, (Number(durationHours) || 0) * 60 + (Number(durationMinutes) || 0))
+        : undefined;
 
     out.push({
       ...(time ? { time } : {}),
       ...(title ? { title } : {}),
       ...(details ? { details } : {}),
       ...(location ? { location } : {}),
-      ...(Number.isFinite(durationMin) ? { durationMin } : {}),
+      ...(Number.isFinite(computedDurationMin) ? { durationMin: computedDurationMin } : {}),
+      ...(Number.isFinite(day) ? { day } : {}),
+      ...(Number.isFinite(durationHours) ? { durationHours } : {}),
+      ...(Number.isFinite(durationMinutes) ? { durationMinutes } : {}),
+      ...(transport ? { transport } : {}),
+      ...(guideLanguages.length ? { guideLanguages } : {}),
+      ...(guideNotes ? { guideNotes } : {}),
       ...(mapsUrl ? { mapsUrl } : {}),
     });
 
@@ -165,6 +200,16 @@ const itineraryStepSchema = new Schema(
     details: str(0, 1200), // "Recojo en hotel..."
     location: str(0, 180), // "Puerto de Puno"
     durationMin: { type: Number, min: 0, max: 2000 },
+    day: { type: Number, min: 1, max: 365 },
+    durationHours: { type: Number, min: 0, max: 48 },
+    durationMinutes: { type: Number, min: 0, max: 59 },
+    transport: { ...str(0, 180) },
+    guideLanguages: {
+      type: [String],
+      default: [],
+      set: (v) => cleanStringArray(parseMaybeStringList(v)),
+    },
+    guideNotes: str(0, 800),
     mapsUrl: {
       ...str(0, 2000),
       validate: {
@@ -172,6 +217,29 @@ const itineraryStepSchema = new Schema(
         message: "itinerary.mapsUrl must be a valid http/https URL.",
       },
     },
+  },
+  { _id: false }
+);
+
+const brochurePdfSchema = new Schema(
+  {
+    url: {
+      type: String,
+      trim: true,
+      maxlength: 2000,
+    },
+    relativePath: {
+      type: String,
+      trim: true,
+      maxlength: 2000,
+    },
+    filename: {
+      type: String,
+      trim: true,
+      maxlength: 255,
+    },
+    size: { type: Number, min: 0 },
+    uploadedAt: { type: Date },
   },
   { _id: false }
 );
@@ -220,6 +288,7 @@ const packageSchema = new Schema(
     },
 
     price: { type: Number, required: true, min: 0 },
+    exclusivePrice: { type: Number, min: 0 },
 
     currency: {
       type: String,
@@ -230,12 +299,26 @@ const packageSchema = new Schema(
     },
 
     durationHours: { type: Number, default: 8, min: 1, max: 240 },
+    dailyCapacity: { type: Number, default: 0, min: 0, max: 2000 },
 
     languages: {
       type: [String],
       default: ["es", "en"],
       set: (v) => normalizeCsvList(v).map((x) => x.toLowerCase()),
     },
+
+    transport: {
+      ...str(0, 120),
+      set: (v) => (nonEmpty(v) ? normalizeText(v, { max: 120 }) : v),
+    },
+
+    guideLanguages: {
+      type: [String],
+      default: ["es", "en"],
+      set: (v) => cleanStringArray(parseMaybeStringList(v)),
+    },
+
+    guideNotes: { ...str(0, 800) },
 
     highlights: { type: [String], default: [], set: (v) => cleanStringArray(parseMaybeStringList(v)) },
     includes: { type: [String], default: [], set: (v) => cleanStringArray(parseMaybeStringList(v)) },
@@ -245,6 +328,7 @@ const packageSchema = new Schema(
     recommendations: { type: [String], default: [], set: (v) => cleanStringArray(parseMaybeStringList(v)) },
 
     media: { type: [mediaSchema], default: [], set: normalizeMediaArray },
+    brochurePdf: { type: brochurePdfSchema },
 
     location: {
       type: locationSchema,

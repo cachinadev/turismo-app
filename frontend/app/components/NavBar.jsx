@@ -15,6 +15,7 @@ import {
   MessageCircle,
 } from 'lucide-react';
 import LanguageSwitcher from './LanguageSwitcher';
+import { API_BASE } from '@/app/lib/config';
 
 // ============================================================================
 // CONSTANTS (from .env)
@@ -61,9 +62,17 @@ const NAV_ITEMS = [
   { key: 'home', path: '/' },
   { key: 'packages', path: '/packages' },
   { key: 'destinations', path: '/destinations' },
+  { key: 'transport', path: '/transport' },
   { key: 'about', path: '/about' },
   { key: 'testimonials', path: '/testimonials' },
   { key: 'contact', path: '/contact' },
+];
+
+const DESTINATION_MENU = [
+  { label: 'Puno', slug: 'puno' },
+  { label: 'Cusco', slug: 'cusco' },
+  { label: 'Arequipa', slug: 'arequipa' },
+  { label: 'Lima', slug: 'lima' },
 ];
 
 // ============================================================================
@@ -126,6 +135,14 @@ const useClickOutside = (refs, handler) => {
   }, [refs, handler]);
 };
 
+const slugifyCity = (s) =>
+  String(s || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+
 const useLocalTranslations = (locale) => {
   const [messages, setMessages] = useState({});
 
@@ -185,14 +202,14 @@ const BrandLogo = ({ scrolled }) => (
   </div>
 );
 
-const NavLink = ({ label, href, isActive, onClick, mobile = false }) => {
+const NavLink = ({ label, href, isActive, onClick, mobile = false, dark = false }) => {
   if (mobile) {
     return (
       <Link
         href={href}
         onClick={onClick}
         className={`
-          block px-5 py-3.5 rounded-xl text-[15px] mb-2 transition-all text-center
+          block px-5 py-3.5 rounded-xl text-[15px] mb-2 transition-all text-center capitalize
           ${
             isActive
               ? 'bg-gradient-to-r from-[#A3B117]/20 to-[#0086C0]/20 text-[#0086C0] font-semibold shadow-sm'
@@ -210,8 +227,16 @@ const NavLink = ({ label, href, isActive, onClick, mobile = false }) => {
     <Link
       href={href}
       className={`
-        relative text-[16px] tracking-wide transition-all duration-300
-        ${isActive ? 'text-[#0086C0] font-semibold' : 'text-[#0E374A] hover:text-[#A3B117]'}
+        relative text-[16px] tracking-wide transition-all duration-300 capitalize
+        ${
+          dark
+            ? isActive
+              ? 'text-[#A3B117] font-semibold'
+              : 'text-slate-100/90 hover:text-white'
+            : isActive
+            ? 'text-[#0086C0] font-semibold'
+            : 'text-[#0E374A] hover:text-[#A3B117]'
+        }
       `}
       style={{ fontFamily: "'Bree Serif', serif" }}
     >
@@ -220,6 +245,32 @@ const NavLink = ({ label, href, isActive, onClick, mobile = false }) => {
         <span className="absolute -bottom-1 left-0 right-0 h-[3px] bg-gradient-to-r from-[#A3B117] to-[#0086C0] rounded-full" />
       )}
     </Link>
+  );
+};
+
+const DropdownMenu = ({ title, items }) => {
+  return (
+    <div className="absolute left-1/2 -translate-x-1/2 mt-3 w-[240px] bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden">
+      <div className="p-2 max-h-[280px] overflow-auto">
+        {items.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-colors"
+          >
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-slate-800 truncate">{item.title}</div>
+              {item.sub ? <div className="text-xs text-slate-500 truncate">{item.sub}</div> : null}
+            </div>
+            {item.badge ? (
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[#0086C0]/10 text-[#0086C0] whitespace-nowrap">
+                {item.badge}
+              </span>
+            ) : null}
+          </Link>
+        ))}
+      </div>
+    </div>
   );
 };
 
@@ -234,7 +285,6 @@ const LanguageSelector = ({ currentLocale, isOpen, onToggle, onClose, langRef, m
           className="w-full flex items-center justify-between px-5 py-3.5 rounded-xl bg-white border-2 border-gray-200 hover:border-[#0086C0]/30 transition-all"
         >
           <div className="flex items-center gap-3">
-            <Globe className="w-5 h-5 text-[#0086C0]" />
             <span
               className="text-[#0E374A] font-semibold text-[15px]"
               style={{ fontFamily: "'Bree Serif', serif" }}
@@ -264,7 +314,6 @@ const LanguageSelector = ({ currentLocale, isOpen, onToggle, onClose, langRef, m
         aria-label="Select language"
         aria-expanded={isOpen}
       >
-        <Globe className="w-4 h-4 text-[#0086C0]" />
         <span className="text-[#0E374A] text-[14px]" style={{ fontFamily: "'Bree Serif', serif" }}>
           {localeData.flag} {localeData.name}
         </span>
@@ -285,7 +334,7 @@ const BookNowButton = ({ href, mobile = false, onClick, label }) => {
       <Link
         href={href}
         onClick={onClick}
-        className="block w-full text-center py-4 rounded-xl text-white bg-gradient-to-r from-[#A3B117] to-[#0086C0] font-semibold text-[16px] shadow-lg active:scale-95 transition-transform"
+        className="block w-full text-center py-4 rounded-xl text-white bg-gradient-to-r from-[#A3B117] to-[#0086C0] font-semibold text-[16px] shadow-lg active:scale-95 transition-transform capitalize"
         style={{ fontFamily: "'Bree Serif', serif" }}
       >
         {label}
@@ -296,7 +345,7 @@ const BookNowButton = ({ href, mobile = false, onClick, label }) => {
   return (
     <Link
       href={href}
-      className="px-6 py-2.5 rounded-xl bg-[#0086C0] text-white font-semibold tracking-wide transition-all duration-300 hover:shadow-[0_0_25px_rgba(163,177,23,0.5)] hover:scale-105"
+      className="px-6 py-2.5 rounded-xl bg-[#0086C0] text-white font-semibold tracking-wide transition-all duration-300 hover:shadow-[0_0_25px_rgba(163,177,23,0.5)] hover:scale-105 capitalize"
       style={{ fontFamily: "'Bree Serif', serif" }}
     >
       {label}
@@ -422,6 +471,11 @@ export default function NavBar() {
   const [mounted, setMounted] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(null);
+  const [featuredPackages, setFeaturedPackages] = useState([]);
+  const [menuLoaded, setMenuLoaded] = useState(false);
+  const [menuLoading, setMenuLoading] = useState(false);
+  const closeMenuRef = useRef(null);
 
   const langRef = useRef(null);
   const mobileMenuRef = useRef(null);
@@ -439,10 +493,38 @@ export default function NavBar() {
 
   useEffect(() => setMounted(true), []);
 
+  const ensureMenuData = useCallback(async () => {
+    if (menuLoaded || menuLoading) return;
+    setMenuLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/packages?limit=8`, { cache: 'no-store' });
+      if (!res.ok) throw new Error('menu_fetch_failed');
+      const json = await res.json().catch(() => ({}));
+      const items = Array.isArray(json?.items) ? json.items : [];
+      const shuffled = items.slice().sort(() => Math.random() - 0.5);
+      const cleaned = shuffled.map((p) => ({
+        title: p.title || 'Package',
+        slug: p.slug,
+        city: p.city,
+      }));
+      setFeaturedPackages(cleaned);
+      setMenuLoaded(true);
+    } catch {
+      setFeaturedPackages([]);
+    } finally {
+      setMenuLoading(false);
+    }
+  }, [menuLoaded, menuLoading]);
+
   useClickOutside([langRef, mobileMenuRef], () => {
     setLangOpen(false);
     setMobileOpen(false);
   });
+  useEffect(() => {
+    return () => {
+      if (closeMenuRef.current) clearTimeout(closeMenuRef.current);
+    };
+  }, []);
 
   const buildHref = useCallback(
     (p) => {
@@ -464,6 +546,43 @@ export default function NavBar() {
     [pathname, buildHref, currentLocale]
   );
 
+  const destinationItems = useMemo(() => {
+    if (featuredPackages.length) {
+      const uniq = new Map();
+      featuredPackages.forEach((p) => {
+        const city = String(p.city || '').trim();
+        if (!city) return;
+        const key = city.toLowerCase();
+        if (!uniq.has(key)) {
+          uniq.set(key, {
+            title: city,
+            href: buildHref(`/destinations/${slugifyCity(city)}`),
+            sub: '',
+            badge: null,
+          });
+        }
+      });
+      return Array.from(uniq.values()).slice(0, 6);
+    }
+
+    return DESTINATION_MENU.map((d) => ({
+      title: d.label,
+      href: buildHref(`/destinations/${d.slug}`),
+      sub: '',
+      badge: null,
+    }));
+  }, [featuredPackages, buildHref]);
+
+  const packageItems = useMemo(() => {
+    if (!featuredPackages.length) return [];
+    return featuredPackages.map((p) => ({
+      title: p.title,
+      href: buildHref(`/packages/${p.slug}`),
+      sub: p.city || '',
+      badge: null,
+    }));
+  }, [featuredPackages, buildHref]);
+
   // Build "Contact" page href once (used in the info card hint, if you want later)
   const contactHref = useMemo(() => buildHref('/contact'), [buildHref]);
 
@@ -474,11 +593,8 @@ export default function NavBar() {
       className={`
         fixed top-0 left-0 right-0 z-50
         transition-all duration-500
-        ${
-          scrolled
-            ? 'bg-white/95 backdrop-blur-xl shadow-[0_8px_25px_rgba(0,0,0,0.08)]'
-            : 'bg-white/40 backdrop-blur-lg'
-        }
+        bg-gradient-to-br from-[#0E374A] via-[#0E374A] to-[#0a2a38]
+        ${scrolled ? 'shadow-[0_8px_25px_rgba(0,0,0,0.25)]' : ''}
       `}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -494,9 +610,40 @@ export default function NavBar() {
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center space-x-10" aria-label="Main navigation">
-            {NAV_ITEMS.map(({ key, path }) => (
-              <NavLink key={key} label={t(key)} href={buildHref(path)} isActive={checkActive(path)} />
-            ))}
+            {NAV_ITEMS.map(({ key, path }) => {
+              const isPackages = key === 'packages';
+              const isDestinations = key === 'destinations';
+              if (isPackages || isDestinations) {
+                const openKey = isPackages ? 'packages' : 'destinations';
+                const items = isPackages ? packageItems : destinationItems;
+                const title = isPackages ? t('packages') : t('destinations');
+                const handleOpen = () => {
+                  if (closeMenuRef.current) clearTimeout(closeMenuRef.current);
+                  setMenuOpen(openKey);
+                  if (isPackages || isDestinations) ensureMenuData();
+                };
+                const handleClose = () => {
+                  if (closeMenuRef.current) clearTimeout(closeMenuRef.current);
+                  closeMenuRef.current = setTimeout(() => setMenuOpen(null), 180);
+                };
+                return (
+                  <div
+                    key={key}
+                    className="relative"
+                    onMouseEnter={handleOpen}
+                    onMouseLeave={handleClose}
+                  >
+                    <NavLink label={t(key)} href={buildHref(path)} isActive={checkActive(path)} dark />
+                    {menuOpen === openKey && items.length ? (
+                      <DropdownMenu title={title} items={items} />
+                    ) : null}
+                  </div>
+                );
+              }
+              return (
+                <NavLink key={key} label={t(key)} href={buildHref(path)} isActive={checkActive(path)} dark />
+              );
+            })}
           </nav>
 
           {/* Desktop Actions */}
@@ -514,14 +661,14 @@ export default function NavBar() {
           {/* Mobile Menu Toggle */}
           <button
             onClick={() => setMobileOpen((v) => !v)}
-            className="lg:hidden p-2 rounded-lg bg-white/60 backdrop-blur-md hover:bg-white/20 transition-colors z-10"
+            className="lg:hidden p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors z-10"
             aria-label="Toggle menu"
             aria-expanded={mobileOpen}
           >
             {mobileOpen ? (
-              <X className="w-6 h-6 text-[#0E374A]" />
+              <X className="w-6 h-6 text-white" />
             ) : (
-              <Menu className="w-6 h-6 text-[#0E374A]" />
+              <Menu className="w-6 h-6 text-white" />
             )}
           </button>
         </div>

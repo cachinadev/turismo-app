@@ -5,12 +5,14 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AdminGuard from '@/app/admin/AdminGuard';
 import PackageForm from '../_form';
+import { useAdminI18n } from '../../i18n/AdminI18nProvider';
 
 // Must match PackagesInner.jsx
 const FLASH_KEY = 'pkg_created_flash';
 
 export default function NewPackageInner() {
   const router = useRouter();
+  const { t } = useAdminI18n();
 
   return (
     <AdminGuard>
@@ -19,17 +21,17 @@ export default function NewPackageInner() {
         <div className="flex items-center justify-between gap-3 mb-4 text-sm">
           <div className="flex items-center gap-2 text-slate-600">
             <Link href="/admin/packages" className="hover:underline">
-              Packages
+              {t('admin.packages', 'Packages')}
             </Link>
             <span>›</span>
-            <span className="text-slate-800">New</span>
+            <span className="text-slate-800">{t('packages.new', 'New')}</span>
           </div>
           <Link href="/admin/packages" className="btn btn-ghost">
-            ← Back to list
+            ← {t('actions.backToList', 'Back to list')}
           </Link>
         </div>
 
-        <h2 className="text-2xl font-bold mb-4 pt-10">Create new package</h2>
+        <h2 className="text-2xl font-bold mb-4 pt-10">{t('packages.createTitle', 'Create new package')}</h2>
 
         <PackageForm
           onSaved={(doc) => {
@@ -38,7 +40,7 @@ export default function NewPackageInner() {
               const payload = {
                 t: Date.now(),
                 id: doc?._id || doc?.id || '',
-                title: doc?.title || 'Package created successfully!',
+                title: doc?.title || t('packages.createdOk', 'Package created successfully!'),
                 slug: doc?.slug || '',
               };
               sessionStorage.setItem(FLASH_KEY, JSON.stringify(payload));

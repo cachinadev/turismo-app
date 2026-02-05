@@ -6,6 +6,7 @@ const fs = require('fs');
 const { v4: uuid } = require('uuid');
 const auth = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
+const { logAdminAction } = require("../utils/adminLog");
 
 const router = express.Router();
 
@@ -116,6 +117,11 @@ router.post(
         });
       }
 
+      await logAdminAction(req, {
+        action: "upload_media",
+        entity: "upload",
+        meta: { count: files.length },
+      });
       return res.status(201).json({ files });
     } catch (err) {
       return next(err);

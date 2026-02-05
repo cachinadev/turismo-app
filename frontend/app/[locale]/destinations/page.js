@@ -1,5 +1,5 @@
-/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
+import Image from "next/image";
 import { API_BASE, SITE_URL } from "@/app/lib/config";
 
 const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || "Vicuña Adventures";
@@ -87,7 +87,8 @@ async function fetchCityPreview(city) {
 }
 
 /* ------------------ Page ------------------ */
-export default async function DestinationsPage() {
+export default async function DestinationsPage({ params }) {
+  const locale = params?.locale || "es";
   const previews = await Promise.all(
     DESTINATIONS.map(async (d, index) => {
       const { total, packages } = await fetchCityPreview(d.city);
@@ -177,7 +178,7 @@ export default async function DestinationsPage() {
                   className="relative group"
                 >
                   <Link
-                    href={`/packages?city=${encodeURIComponent(destination.city)}`}
+                    href={`/${locale}/destinations/${destination.slug}`}
                     className="block"
                   >
                     {/* Shape Container */}
@@ -204,10 +205,12 @@ export default async function DestinationsPage() {
                             {/* Imagen principal centrada */}
                             {displayImages[0] && (
                               <div className="absolute inset-0">
-                                <img
+                                <Image
                                   src={displayImages[0].image}
                                   alt={displayImages[0].title || destination.displayName}
-                                  className="w-full h-full object-cover transform scale-125 group-hover:scale-150 transition-transform duration-700"
+                                  fill
+                                  sizes="192px"
+                                  className="object-cover transform scale-125 group-hover:scale-150 transition-transform duration-700"
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-transparent"></div>
                               </div>
@@ -224,10 +227,12 @@ export default async function DestinationsPage() {
                                   transform: `rotate(${imgIndex * 45}deg)`,
                                 }}
                               >
-                                <img
+                                <Image
                                   src={pkg.image}
                                   alt={pkg.title || `${destination.displayName} ${imgIndex + 2}`}
-                                  className="w-full h-full object-cover"
+                                  fill
+                                  sizes="80px"
+                                  className="object-cover"
                                 />
                               </div>
                             ))}
@@ -326,17 +331,19 @@ export default async function DestinationsPage() {
                             key={imgIndex}
                             className="aspect-square rounded-lg overflow-hidden bg-gray-100"
                           >
-                            <img
+                            <Image
                               src={pkg.image}
                               alt={pkg.title || `${destination.displayName} ${imgIndex + 1}`}
-                              className="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
+                              fill
+                              sizes="120px"
+                              className="object-cover hover:scale-110 transition-transform duration-300"
                             />
                           </div>
                         ))}
                       </div>
                       <div className="mt-3 text-center">
                         <Link
-                          href={`/packages?city=${encodeURIComponent(destination.city)}`}
+                          href={`/${locale}/destinations/${destination.slug}`}
                           className="text-sm font-base hover:underline inline-flex items-center gap-1"
                           style={{ color: destination.color }}
                         >

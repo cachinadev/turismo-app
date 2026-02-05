@@ -5,6 +5,7 @@ const mongoose = require("mongoose");
 const slugify = require("slugify");
 const Package = require("../models/Package");
 const auth = require("../middleware/auth");
+const { logAdminAction } = require("../utils/adminLog");
 
 const router = express.Router();
 
@@ -119,6 +120,12 @@ function normLanguages(v) {
   return [];
 }
 
+function clamp(n, min, max) {
+  const value = Number(n);
+  if (!Number.isFinite(value)) return min;
+  return Math.min(max, Math.max(min, value));
+}
+
 function normLocation(loc) {
   if (!loc || typeof loc !== "object") return undefined;
   const lat = Number(loc.lat);
@@ -136,6 +143,13 @@ function isValidHttpUrl(v) {
   } catch {
     return false;
   }
+}
+
+function isValidBrochureUrl(v) {
+  if (!nonEmpty(v)) return true;
+  const s = String(v);
+  if (s.startsWith("/uploads/")) return true;
+  return isValidHttpUrl(s);
 }
 
 // Normalize media payload (server-side sanity + DEDUPE)
@@ -184,15 +198,50 @@ function normalizeItineraryInPayload(input) {
         ? undefined
         : Math.max(0, Number(durationMinRaw || 0));
 
+    const durationHoursRaw = s.durationHours;
+    const durationHours =
+      durationHoursRaw === "" || durationHoursRaw === null || durationHoursRaw === undefined
+        ? undefined
+        : clamp(Math.max(0, Number(durationHoursRaw || 0)), 0, 48);
+
+    const durationMinutesRaw = s.durationMinutes;
+    const durationMinutes =
+      durationMinutesRaw === "" || durationMinutesRaw === null || durationMinutesRaw === undefined
+        ? undefined
+        : clamp(Math.max(0, Number(durationMinutesRaw || 0)), 0, 59);
+
+    const dayRaw = s.day;
+    const day =
+      dayRaw === "" || dayRaw === null || dayRaw === undefined
+        ? undefined
+        : clamp(Math.max(1, Number(dayRaw || 0)), 1, 365);
+
+    const transport = String(s.transport || "").trim();
+    const guideNotes = String(s.guideNotes || "").trim();
+    const guideLanguages = normLanguages(s.guideLanguages);
+
     if (!time && !title && !details && !location && !mapsUrl) continue;
     if (mapsUrl && !isValidHttpUrl(mapsUrl)) continue;
+
+    const computedDurationMin =
+      Number.isFinite(durationMin)
+        ? durationMin
+        : Number.isFinite(durationHours) || Number.isFinite(durationMinutes)
+        ? Math.max(0, (Number(durationHours) || 0) * 60 + (Number(durationMinutes) || 0))
+        : undefined;
 
     out.push({
       ...(time ? { time } : {}),
       ...(title ? { title } : {}),
       ...(details ? { details } : {}),
       ...(location ? { location } : {}),
-      ...(Number.isFinite(durationMin) ? { durationMin } : {}),
+      ...(Number.isFinite(computedDurationMin) ? { durationMin: computedDurationMin } : {}),
+      ...(Number.isFinite(day) ? { day } : {}),
+      ...(Number.isFinite(durationHours) ? { durationHours } : {}),
+      ...(Number.isFinite(durationMinutes) ? { durationMinutes } : {}),
+      ...(transport ? { transport } : {}),
+      ...(guideLanguages.length ? { guideLanguages } : {}),
+      ...(guideNotes ? { guideNotes } : {}),
       ...(mapsUrl ? { mapsUrl } : {}),
     });
 
@@ -229,6 +278,12 @@ function computeEffectivePrice(doc, now = new Date()) {
 function serializePackage(doc, base) {
   const d = { ...doc };
   d.media = normalizeMediaAbsolute(base, d.media);
+  if (d.brochurePdf?.url) {
+    d.brochurePdf = {
+      ...d.brochurePdf,
+      url: toAbsolute(base, d.brochurePdf.url),
+    };
+  }
 
   const now = new Date();
   d.isPromoActive = isPromoCurrentlyActive(d, now);
@@ -254,11 +309,13 @@ const ALLOWED_FIELDS = new Set([
   "title",
   "description",
   "price",
+  "exclusivePrice",
   "currency",
   "city",
   "country",
   "category",
   "durationHours",
+  "dailyCapacity",
   "languages",
 
   "highlights",
@@ -268,6 +325,7 @@ const ALLOWED_FIELDS = new Set([
   "recommendations",
 
   "media",
+  "brochurePdf",
   "active",
 
   "location",
@@ -368,11 +426,14 @@ router.get("/", async (req, res) => {
       "title",
       "slug",
       "price",
+      "exclusivePrice",
       "currency",
       "city",
       "country",
       "category",
+      "description",
       "durationHours",
+      "dailyCapacity",
       "languages",
       "highlights",
       "includes",
@@ -481,9 +542,11 @@ router.post(
       .isLength({ min: 10, max: 4000 })
       .withMessage("description: mínimo 10 caracteres"),
     body("price").isFloat({ min: 0 }),
+    body("exclusivePrice").optional({ checkFalsy: true }).isFloat({ min: 0 }),
 
     body("currency").optional({ checkFalsy: true }).isString().isLength({ min: 1, max: 5 }),
     body("durationHours").optional({ checkFalsy: true }).isInt({ min: 1, max: 240 }),
+    body("dailyCapacity").optional({ checkFalsy: true }).isInt({ min: 0, max: 2000 }),
 
     body("city").optional({ checkFalsy: true }).isString().trim(),
     body("country").optional({ checkFalsy: true }).isString().trim(),
@@ -499,6 +562,13 @@ router.post(
 
     // media / flags
     body("media").optional({ checkFalsy: true }),
+    body("brochurePdf.url")
+      .optional({ checkFalsy: true })
+      .custom((v) => isValidBrochureUrl(v))
+      .withMessage("brochurePdf.url invalid"),
+    body("brochurePdf.relativePath").optional({ checkFalsy: true }).isString().trim().isLength({ max: 2000 }),
+    body("brochurePdf.filename").optional({ checkFalsy: true }).isString().trim().isLength({ max: 255 }),
+    body("brochurePdf.size").optional({ checkFalsy: true }).isInt({ min: 0 }),
     body("active").optional({ checkFalsy: true }).isBoolean(),
 
     // geo
@@ -567,6 +637,18 @@ router.post(
       if (payload.location) payload.location = normLocation(payload.location);
 
       if (payload.media) payload.media = normalizeMediaInPayload(payload.media);
+      if (payload.brochurePdf) {
+        const bp = payload.brochurePdf || {};
+        const clean = {};
+        if (bp.url && isValidBrochureUrl(bp.url)) clean.url = String(bp.url).trim();
+        if (bp.relativePath && String(bp.relativePath).startsWith("/uploads/")) {
+          clean.relativePath = String(bp.relativePath).trim();
+        }
+        if (bp.filename) clean.filename = String(bp.filename).trim().slice(0, 255);
+        if (bp.size !== undefined && Number.isFinite(Number(bp.size))) clean.size = Number(bp.size);
+        if (Object.keys(clean).length) payload.brochurePdf = clean;
+        else delete payload.brochurePdf;
+      }
 
       if (payload.mapsUrl && !isValidHttpUrl(payload.mapsUrl)) delete payload.mapsUrl;
 
@@ -596,6 +678,12 @@ router.post(
       const pkg = await Package.create({ ...payload, slug });
 
       const base = getBaseUrl(req);
+      await logAdminAction(req, {
+        action: "package_create",
+        entity: "package",
+        entityId: pkg._id?.toString(),
+        meta: { title: pkg.title, slug: pkg.slug },
+      });
       res.status(201).json(serializePackage(pkg.toObject(), base));
     } catch (err) {
       if (handleMongooseValidation(err, res)) return;
@@ -623,9 +711,11 @@ router.put(
       .isLength({ min: 10, max: 4000 })
       .withMessage("description: mínimo 10 caracteres"),
     body("price").optional({ checkFalsy: true }).isFloat({ min: 0 }),
+    body("exclusivePrice").optional({ checkFalsy: true }).isFloat({ min: 0 }),
 
     body("currency").optional({ checkFalsy: true }).isString().isLength({ min: 1, max: 5 }),
     body("durationHours").optional({ checkFalsy: true }).isInt({ min: 1, max: 240 }),
+    body("dailyCapacity").optional({ checkFalsy: true }).isInt({ min: 0, max: 2000 }),
 
     body("city").optional({ checkFalsy: true }).isString().trim(),
     body("country").optional({ checkFalsy: true }).isString().trim(),
@@ -641,6 +731,13 @@ router.put(
 
     // media / flags
     body("media").optional({ checkFalsy: true }),
+    body("brochurePdf.url")
+      .optional({ checkFalsy: true })
+      .custom((v) => isValidBrochureUrl(v))
+      .withMessage("brochurePdf.url invalid"),
+    body("brochurePdf.relativePath").optional({ checkFalsy: true }).isString().trim().isLength({ max: 2000 }),
+    body("brochurePdf.filename").optional({ checkFalsy: true }).isString().trim().isLength({ max: 255 }),
+    body("brochurePdf.size").optional({ checkFalsy: true }).isInt({ min: 0 }),
     body("active").optional({ checkFalsy: true }).isBoolean(),
 
     // geo
@@ -716,6 +813,18 @@ router.put(
       if (bodyObj.location) bodyObj.location = normLocation(bodyObj.location);
 
       if (bodyObj.media) bodyObj.media = normalizeMediaInPayload(bodyObj.media);
+      if (bodyObj.brochurePdf) {
+        const bp = bodyObj.brochurePdf || {};
+        const clean = {};
+        if (bp.url && isValidBrochureUrl(bp.url)) clean.url = String(bp.url).trim();
+        if (bp.relativePath && String(bp.relativePath).startsWith("/uploads/")) {
+          clean.relativePath = String(bp.relativePath).trim();
+        }
+        if (bp.filename) clean.filename = String(bp.filename).trim().slice(0, 255);
+        if (bp.size !== undefined && Number.isFinite(Number(bp.size))) clean.size = Number(bp.size);
+        if (Object.keys(clean).length) bodyObj.brochurePdf = clean;
+        else delete bodyObj.brochurePdf;
+      }
 
       if (bodyObj.mapsUrl && !isValidHttpUrl(bodyObj.mapsUrl)) delete bodyObj.mapsUrl;
 
@@ -745,6 +854,12 @@ router.put(
       if (!updated) return res.status(404).json({ message: "No encontrado" });
 
       const base = getBaseUrl(req);
+      await logAdminAction(req, {
+        action: "package_update",
+        entity: "package",
+        entityId: id,
+        meta: { title: updated.title, slug: updated.slug },
+      });
       res.json(serializePackage(updated, base));
     } catch (err) {
       if (handleMongooseValidation(err, res)) return;
@@ -763,6 +878,12 @@ router.delete("/:id", auth("admin"), async (req, res) => {
     const deleted = await Package.findByIdAndDelete(id);
     if (!deleted) return res.status(404).json({ message: "No encontrado" });
 
+    await logAdminAction(req, {
+      action: "package_delete",
+      entity: "package",
+      entityId: id,
+      meta: { title: deleted.title, slug: deleted.slug },
+    });
     res.json({ ok: true, id });
   } catch (err) {
     console.error("DELETE /api/packages/:id error:", err);
@@ -798,6 +919,12 @@ router.patch("/:id/toggle", auth("admin"), async (req, res) => {
     await doc.save();
 
     const base = getBaseUrl(req);
+    await logAdminAction(req, {
+      action: "package_toggle_active",
+      entity: "package",
+      entityId: id,
+      meta: { active: doc.active, title: doc.title, slug: doc.slug },
+    });
     res.json(serializePackage(doc.toObject(), base));
   } catch (err) {
     if (handleMongooseValidation(err, res)) return;

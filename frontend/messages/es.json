@@ -243,6 +243,7 @@
     "home": "Inicio",
     "packages": "Paquetes",
     "destinations": "Destinos",
+    "transport": "Transporte",
     "about": "Nosotros",
     "testimonials": "Testimonios",
     "contact": "Contacto",
@@ -263,6 +264,7 @@
     "groupSize": "Tamaño del grupo",
     "availability": "Disponibilidad",
     "languages": "Idiomas",
+    "category": "Categoría",
     "difficulty": "Dificultad",
     "minAge": "Edad mínima",
     "startTimes": "Horarios",
@@ -276,6 +278,8 @@
     "open": "Abrir",
 
     "whatsIncluded": "Qué incluye",
+    "whatToBring": "Qué llevar",
+    "recommendations": "Recomendaciones",
     "meetingInfo": "Punto de encuentro y retorno",
     "meetingPoint": "Punto de encuentro",
     "dropoffPoint": "Punto de retorno",
@@ -302,7 +306,9 @@
     "questions": "¿Tienes preguntas?",
     "helpText": "Escríbenos por WhatsApp o correo y te ayudamos a planificar tu viaje.",
     "chat": "Chatear por WhatsApp",
+    "quickResponse": "Respuesta rápida • 24/7",
     "email": "Correo",
+    "emailDetail": "Consultas detalladas • Adjuntos",
 
     "readyToBook": "¿Listo para reservar esta experiencia?",
     "people": "personas",
@@ -322,16 +328,22 @@
     "cookies": "Política de Cookies",
     "sitemap": "Mapa del sitio",
     "contact": "Contáctanos",
+    "openMaps": "Abrir Maps",
     "address": "Av. Juan de Arona 755, Piso 11 - San Isidro, Lima, Perú",
     "business": "Razón Social",
     "businessValue": "Vicuña Adventures SAC",
     "ruc": "RUC",
     "rucValue": "20536830376",
+    "officialPhone": "Número oficial",
+    "secondaryPhone": "Número secundario",
+    "whatsapp": "WhatsApp",
+    "chatWhatsapp": "Chat WhatsApp",
     "phone": "Teléfono",
     "phoneValue": "+51 1 6196900",
     "email": "Correo electrónico",
     "emailValue": "sales@vicuadvent.com",
-    "rights": "Todos los derechos reservados"
+    "rights": "Todos los derechos reservados",
+    "madeIn": "Hecho con ❤️ en Perú"
   },
 
   "WhatsApp": {
@@ -353,7 +365,18 @@
     "notesPlaceholder": "Detalles adicionales, preferencias o preguntas",
     "people": "Personas",
     "estimated": "Total estimado",
+    "liveQuote": "Cotización en vivo",
+    "finalPrice": "Precio final (backend)",
+    "unit": "unitario",
     "confirm": "Confirmar reserva",
+    "tourType": {
+      "label": "Tour exclusivo (privado)",
+      "short": "Tour",
+      "exclusive": "Exclusivo",
+      "collective": "Colectivo",
+      "exclusiveHelp": "Solo tú/tu grupo participará en este tour.",
+      "collectiveHelp": "Podrías compartir el tour con otros viajeros."
+    },
     "sending": "Enviando...",
     "success": {
       "sent": "¡Reserva enviada! Por favor revisa tu correo para la confirmación."

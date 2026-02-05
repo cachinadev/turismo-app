@@ -2,36 +2,31 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { CONTACT_PHONE, WHATSAPP_NUMBER } from '@/app/lib/config';
+import { trackEvent } from '@/app/lib/analytics';
 
 const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'Vicuña Adventures';
-
-// ✅ Use OFFICIAL number as WhatsApp contact (matches your requirement)
-// Priority: explicit WhatsApp env > official phone env > contact phone env > hard default
-const WHATSAPP_PHONE =
-  process.env.NEXT_PUBLIC_WHATSAPP_SUPPORT ||
-  process.env.NEXT_PUBLIC_CONTACT_PHONE_OFFICIAL ||
-  process.env.NEXT_PUBLIC_CONTACT_PHONE ||
-  '+51 953 858 267';
 
 const DEFAULT_MESSAGE =
   process.env.NEXT_PUBLIC_WHATSAPP_DEFAULT_MESSAGE ||
   '¡Hola! Me gustaría obtener más información sobre los paquetes turísticos.';
 
 const normalizePhoneForWA = (phone) => (phone || '').replace(/[^\d]/g, ''); // keep digits only
+const WHATSAPP_PHONE = CONTACT_PHONE;
 
 export default function WhatsAppFloat() {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
 
   const href = useMemo(() => {
-    const digits = normalizePhoneForWA(WHATSAPP_PHONE);
+    const digits = normalizePhoneForWA(WHATSAPP_NUMBER || WHATSAPP_PHONE);
     if (!digits) return null;
     const msg = text?.trim() ? text.trim() : DEFAULT_MESSAGE;
     return `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`;
   }, [text]);
 
   return (
-    <>
+    <div className="whatsapp-float">
       <style jsx global>{`
         @keyframes pulseWhatsApp {
           0% {
@@ -195,6 +190,13 @@ export default function WhatsAppFloat() {
               aria-disabled={!href}
               onClick={(e) => {
                 if (!href) e.preventDefault();
+                if (href) {
+                  trackEvent('cta_whatsapp_click', {
+                    source: 'float',
+                    href,
+                    messageLength: text?.trim()?.length || 0,
+                  });
+                }
               }}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
@@ -213,7 +215,10 @@ export default function WhatsAppFloat() {
 
       {/* Botón Flotante */}
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          setOpen((v) => !v);
+          trackEvent('cta_whatsapp_toggle', { source: 'float' });
+        }}
         className="pulse-wa fixed bottom-6 right-4 sm:right-6 w-16 h-16 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 hover:scale-110 active:scale-95 z-[9998]"
         style={{ backgroundColor: '#25D366' }}
         aria-label="Abrir chat de WhatsApp"
@@ -235,6 +240,6 @@ export default function WhatsAppFloat() {
           <span className="font-bree text-xs text-white font-bold">1</span>
         </div>
       )}
-    </>
+    </div>
   );
 }

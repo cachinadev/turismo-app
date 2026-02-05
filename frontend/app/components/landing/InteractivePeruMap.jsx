@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { API_BASE } from "@/app/lib/config";
+import { API_BASE, CONTACT_PHONE, WHATSAPP_NUMBER } from "@/app/lib/config";
 import { mediaUrl } from "@/app/lib/media";
 import {
   MapPin,
@@ -31,10 +31,14 @@ const CITY_CENTER = {
 
 const normalizeSlug = (s) => String(s || "").trim().replace(/^\/+|\/+$/g, "");
 const safeNumber = (n, fallback = 0) => (Number.isFinite(Number(n)) ? Number(n) : fallback);
+const WA_LINK_NUMBER =
+  (String(WHATSAPP_NUMBER || CONTACT_PHONE).match(/\d+/g) || []).join("") ||
+  "51953858267";
 
 const usePackagesData = () => {
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const hasLoadedRef = useRef(false);
 
   const fetchPackages = useCallback(async () => {
     if (loading) return;
@@ -47,7 +51,7 @@ const usePackagesData = () => {
       const res = await fetch(`${API_BASE}/api/packages?limit=100`, {
         signal: controller.signal,
         headers: { "Content-Type": "application/json" },
-        next: { revalidate: 60 },
+        cache: "no-store",
       });
 
       clearTimeout(timeoutId);
@@ -106,21 +110,14 @@ const usePackagesData = () => {
   }, [loading]);
 
   useEffect(() => {
-    let intervalId;
-
-    const initLoad = async () => {
-      if (packages.length === 0) {
-        await fetchPackages();
-        intervalId = setInterval(fetchPackages, 60000);
-      }
-    };
-
-    initLoad();
+    if (!hasLoadedRef.current) {
+      fetchPackages();
+      hasLoadedRef.current = true;
+    }
 
     return () => {
-      if (intervalId) clearInterval(intervalId);
     };
-  }, [fetchPackages, packages.length]);
+  }, [fetchPackages]);
 
   return { packages, loading, refetch: fetchPackages };
 };
@@ -158,7 +155,6 @@ const PackageCard = React.memo(({ pkg, onClick, t = (key, fallback) => fallback 
 PackageCard.displayName = "PackageCard";
 
 const PackagePopup = React.memo(({ pkg, onClose, t = (key, fallback) => fallback || key, locale = "es" }) => {
-  const WHATSAPP_NUMBER = "51953858267";
 
   const pkgSlug = useMemo(() => normalizeSlug(pkg?.slug) || normalizeSlug(pkg?.id), [pkg?.slug, pkg?.id]);
 
@@ -167,7 +163,7 @@ const PackagePopup = React.memo(({ pkg, onClose, t = (key, fallback) => fallback
       "{title}",
       pkg.title
     );
-    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, "_blank");
+    window.open(`https://wa.me/${WA_LINK_NUMBER}?text=${encodeURIComponent(message)}`, "_blank");
   }, [pkg.title, t]);
 
   // ✅ FIX: your valid route is /[locale]/packages/[slug] (plural)

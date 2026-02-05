@@ -85,13 +85,13 @@ bookingSchema.pre("validate", function (next) {
   this.people.adults = Math.max(1, Number(this.people.adults || 1));
   this.people.children = Math.max(0, Number(this.people.children || 0));
 
-  // compute total
+  // compute total (children half-price for collective only)
   const adults = Number(this.people.adults || 0);
   const children = Number(this.people.children || 0);
-  const people = Math.max(1, adults + children);
-
   const unit = Math.max(0, Number(this.unitPrice || 0));
-  this.totalPrice = +(unit * people).toFixed(2);
+  const isExclusive = this.tourType === "exclusive" || this.isExclusive === true;
+  const billedPeople = isExclusive ? adults + children : adults + children * 0.5;
+  this.totalPrice = +(unit * Math.max(1, billedPeople)).toFixed(2);
 
   next();
 });

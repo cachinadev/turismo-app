@@ -6,9 +6,31 @@ const mongoose = require("mongoose");
 const Booking = require("../models/Booking");
 const Package = require("../models/Package");
 const auth = require("../middleware/auth");
+const { logAdminAction } = require("../utils/adminLog");
 const { sendBookingEmails } = require("../utils/mailer");
 
 const router = express.Router();
+
+// Public lookup by reservationId (limited info)
+router.get("/lookup", async (req, res) => {
+  try {
+    const reservationId = String(req.query.reservationId || "").trim();
+    if (!reservationId) return res.status(400).json({ message: "reservationId requerido" });
+
+    const booking = await Booking.findOne({ reservationId })
+      .select("status packageMeta slug")
+      .populate("package", "slug")
+      .lean();
+
+    if (!booking) return res.status(404).json({ message: "Reserva no encontrada" });
+
+    const pkgSlug = booking?.packageMeta?.slug || booking?.package?.slug || "";
+    return res.json({ ok: true, reservationId, status: booking.status, packageSlug: pkgSlug });
+  } catch (e) {
+    console.error("GET /api/bookings/lookup error:", e);
+    return res.status(500).json({ message: "Error al buscar reserva" });
+  }
+});
 
 /* ===================== Helpers ===================== */
 const isObjectId = (v) => mongoose.Types.ObjectId.isValid(v);
@@ -25,6 +47,95 @@ function safeText(v, max = 120) {
 }
 function normalizeEmail(v) {
   return safeText(v, 180).toLowerCase();
+}
+
+/* ---------------- Demand + holiday helpers ---------------- */
+const FF_SCALE = Object.freeze({
+  normal: 1.0,
+  bajo: 1.1,
+  medio: 1.2,
+  alto: 1.35,
+  muy_alto: 1.5,
+});
+
+const HOLIDAYS_2026_PE = Object.freeze({
+  "2026-04-02": { name: "Semana Santa (Jueves)", impact: "muy_alto" },
+  "2026-04-03": { name: "Semana Santa (Viernes)", impact: "muy_alto" },
+  "2026-05-01": { name: "Día del Trabajo", impact: "medio" },
+  "2026-06-07": { name: "Batalla de Arica y Día de la Bandera", impact: "bajo" },
+  "2026-06-29": { name: "San Pedro y San Pablo", impact: "medio" },
+  "2026-07-23": { name: "Día de la Fuerza Aérea del Perú", impact: "bajo" },
+  "2026-07-28": { name: "Fiestas Patrias", impact: "muy_alto" },
+  "2026-07-29": { name: "Fiestas Patrias", impact: "muy_alto" },
+  "2026-08-06": { name: "Batalla de Junín", impact: "medio" },
+  "2026-08-30": { name: "Santa Rosa de Lima", impact: "medio" },
+  "2026-10-08": { name: "Combate de Angamos", impact: "medio" },
+  "2026-11-01": { name: "Día de Todos los Santos", impact: "medio" },
+  "2026-12-08": { name: "Inmaculada Concepción", impact: "bajo" },
+  "2026-12-09": { name: "Batalla de Ayacucho", impact: "bajo" },
+  "2026-12-25": { name: "Navidad", impact: "bajo" },
+});
+
+function getFF(fechaISO, opts = {}) {
+  const capMax = typeof opts.capMax === "number" ? opts.capMax : FF_SCALE.muy_alto;
+  const info = HOLIDAYS_2026_PE[fechaISO];
+  if (!info) {
+    return { FF: FF_SCALE.normal, isHoliday: false, impact: "normal", name: null };
+  }
+  const impact = info.impact;
+  const rawFF = FF_SCALE[impact] ?? FF_SCALE.normal;
+  const FF = Math.min(rawFF, capMax);
+  return { FF, isHoliday: true, impact, name: info.name };
+}
+
+function getFactorFeriado(fechaISO) {
+  return getFF(fechaISO);
+}
+
+function calcularPrecioFinal({
+  precioBase,
+  reservas,
+  capacidad,
+  diasAntes,
+  fechaTour,
+  personas,
+  ignoreGroupDiscount = false,
+}) {
+  const safeCap = Math.max(1, Number(capacidad || 1));
+  const ID = Math.max(0, Number(reservas || 0)) / safeCap;
+
+  const FT = diasAntes > 30 ? 0.8 : diasAntes >= 15 ? 1.0 : diasAntes >= 7 ? 1.2 : 1.5;
+  const feriado = getFactorFeriado(fechaTour);
+  const FF = feriado.FF;
+  const DA = ID * FT * FF;
+
+  let MD =
+    DA < 0.6 ? 1.0 :
+    DA < 0.8 ? 1.05 :
+    DA < 1.0 ? 1.10 :
+    DA < 1.2 ? 1.20 : 1.35;
+  if (feriado.isHoliday) MD = Math.max(MD, FF);
+
+  let DG =
+    personas <= 2 ? 0 :
+    personas <= 4 ? 0.08 :
+    personas <= 6 ? 0.17 :
+    personas <= 10 ? 0.25 : 0.30;
+
+  if (ignoreGroupDiscount) DG = 0;
+
+  if (DA > 1.0 && DG > 0.15) DG = 0.15;
+
+  return {
+    unitPrice: Math.round(Number(precioBase || 0) * MD * (1 - DG)),
+    demandaAjustada: DA,
+    factorFeriado: FF,
+    factorTiempo: FT,
+    factorDemanda: MD,
+    descuentoGrupo: DG,
+    isHoliday: feriado.isHoliday,
+    holidayName: feriado.name,
+  };
 }
 
 /** Date parser: accepts ISO, YYYY-MM-DD, DD/MM/YYYY */
@@ -73,36 +184,74 @@ function isPromoCurrentlyActive(pkg, now = new Date()) {
   return true;
 }
 
-function computeEffectiveUnitPrice(pkg, now = new Date()) {
-  const base = Math.max(0, Number(pkg?.price || 0));
+
+function calcularPrecioExclusive(precioBase, personas) {
+  let descuento = 0;
+  const p = Math.max(1, Number(personas || 1));
+
+  if (p === 1) descuento = 0;
+  else if (p <= 3) descuento = 0.05;
+  else if (p <= 5) descuento = 0.10;
+  else if (p === 6) descuento = 0.15;
+  else if (p <= 8) descuento = 0.20;
+  else if (p <= 15) descuento = 0.25;
+  else descuento = 0.30;
+
+  const unit = Math.round(Math.max(0, Number(precioBase || 0)) * (1 - descuento));
+  return { unitPrice: unit, descuento };
+}
+
+function computeEffectiveUnitPrice(pkg, tourType = "collective", now = new Date(), demandCtx = {}) {
+  const basePrice = Math.max(0, Number(pkg?.price || 0));
+  const exclusiveBase = Math.max(0, Number(pkg?.exclusivePrice || 0));
+  const base = tourType === "exclusive" && exclusiveBase > 0 ? exclusiveBase : basePrice;
   const currency = String(pkg?.currency || "PEN").toUpperCase();
 
-  // If you ever add exclusivePrice in Package model, enable this:
-  // const exclusiveBase = Math.max(0, Number(pkg?.exclusivePrice || 0));
-  // if (exclusiveBase > 0 && ...) base = exclusiveBase;
+  const demand = calcularPrecioFinal({
+    precioBase: base,
+    reservas: demandCtx.reservas,
+    capacidad: demandCtx.capacidad,
+    diasAntes: demandCtx.diasAntes,
+    fechaTour: demandCtx.fechaTour,
+    personas: demandCtx.personas,
+    ignoreGroupDiscount: tourType === "exclusive",
+  });
 
-  if (!isPromoCurrentlyActive(pkg, now)) {
+  if (tourType === "exclusive") {
+    const excl = calcularPrecioExclusive(demand.unitPrice, demandCtx.personas);
     return {
-      unitPrice: +base.toFixed(2),
+      unitPrice: +Math.max(0, Number(excl.unitPrice || 0)).toFixed(2),
       currency,
       isPromoActive: false,
       basePrice: +base.toFixed(2),
+      demandMeta: { demandaAjustada: demand.demandaAjustada, factorFeriado: demand.factorFeriado },
+      exclusiveDiscount: excl.descuento,
+    };
+  }
+
+  if (!isPromoCurrentlyActive(pkg, now)) {
+    return {
+      unitPrice: +Math.max(0, Number(demand.unitPrice || 0)).toFixed(2),
+      currency,
+      isPromoActive: false,
+      basePrice: +base.toFixed(2),
+      demandMeta: { demandaAjustada: demand.demandaAjustada, factorFeriado: demand.factorFeriado },
     };
   }
 
   const fixed = Math.max(0, Number(pkg?.promoPrice || 0));
   const percent = clamp(Math.max(0, Number(pkg?.promoPercent || 0)), 0, 100);
 
-  let effective = null;
+  let effective = Math.max(0, Number(demand.unitPrice || 0));
   if (fixed > 0) effective = fixed;
-  else if (percent > 0) effective = base * (1 - percent / 100);
-  if (effective == null) effective = base;
+  else if (percent > 0) effective = effective * (1 - percent / 100);
 
   return {
     unitPrice: +Math.max(0, effective).toFixed(2),
     currency,
     isPromoActive: true,
     basePrice: +base.toFixed(2),
+    demandMeta: { demandaAjustada: demand.demandaAjustada, factorFeriado: demand.factorFeriado },
   };
 }
 
@@ -212,21 +361,68 @@ router.post(
       }
 
       // 3) Normalize people
-      const adults = clamp(toNum(people.adults, 1), 1, 50);
-      const children = clamp(toNum(people.children, 0), 0, 50);
+      let adults = clamp(toNum(people.adults, 1), 1, 15);
+      let children = clamp(toNum(people.children, 0), 0, 15);
+      let totalPeople = Math.max(1, adults + children);
+      if (totalPeople > 15) {
+        const overflow = totalPeople - 15;
+        children = Math.max(0, children - overflow);
+        totalPeople = Math.max(1, adults + children);
+      }
 
       // 4) Tour type compatibility
       const finalTourType =
         typeof isExclusive === "boolean"
           ? isExclusive
             ? "exclusive"
-            : "collective"
+          : "collective"
           : tourType === "exclusive"
           ? "exclusive"
           : "collective";
 
-      // 5) ✅ Pricing (backend truth): promo-aware
-      const pricing = computeEffectiveUnitPrice(pkg, new Date());
+      // 5) Demand context (reservations + capacity + days before)
+      const tourDayStart = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+      const tourDayEnd = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1));
+      const diasAntes = Math.max(0, Math.ceil((tourDayStart - midnight) / 86400000));
+      const fechaISO = tourDayStart.toISOString().slice(0, 10);
+
+      const cap =
+        Number(pkg?.dailyCapacity ?? pkg?.capacity ?? pkg?.maxPeople ?? 0);
+      const capacidad = Number.isFinite(cap) && cap > 0 ? cap : 1;
+
+      const agg = await Booking.aggregate([
+        {
+          $match: {
+            package: pkg._id,
+            date: { $gte: tourDayStart, $lt: tourDayEnd },
+            status: { $ne: "Cancelado" },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            people: {
+              $sum: {
+                $add: [
+                  { $ifNull: ["$people.adults", 0] },
+                  { $ifNull: ["$people.children", 0] },
+                ],
+              },
+            },
+          },
+        },
+      ]);
+      const reservas = agg?.[0]?.people || 0;
+      const reservasIncluyendoActual = reservas + totalPeople;
+
+      // 6) ✅ Pricing (backend truth): demand + holiday + group (+ promos for collective)
+      const pricing = computeEffectiveUnitPrice(pkg, finalTourType, new Date(), {
+        reservas: reservasIncluyendoActual,
+        capacidad,
+        diasAntes,
+        fechaTour: fechaISO,
+        personas: totalPeople,
+      });
       const unitPrice = pricing.unitPrice;
       const currency = pricing.currency;
 
@@ -238,7 +434,7 @@ router.post(
         });
       }
 
-      // 6) Create booking
+      // 7) Create booking
       const booking = await Booking.create({
         package: pkg._id,
         packageMeta: {
@@ -264,7 +460,7 @@ router.post(
         sourceUrl: safeText(sourceUrl, 500),
       });
 
-      // 7) Send emails (do not fail booking if email fails)
+      // 8) Send emails (do not fail booking if email fails)
       // IMPORTANT: we should NOT block the response.
       // Also: sendBookingEmails expects "booking" and "pkg" objects.
       let email = { user: "unknown", admin: "unknown" };
@@ -298,6 +494,122 @@ router.post(
       return res
         .status(500)
         .json({ code: "BOOKING_CREATE_ERROR", message: "Error al crear reserva" });
+    }
+  }
+);
+
+/* ===================== Quote (public) ===================== */
+router.post(
+  "/quote",
+  [
+    body("packageId").isMongoId(),
+    body("date").isString().notEmpty(),
+    body("people.adults").optional().isInt({ min: 1, max: 50 }),
+    body("people.children").optional().isInt({ min: 0, max: 50 }),
+    body("tourType").optional().isIn(["collective", "exclusive"]),
+    body("isExclusive").optional().isBoolean(),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return sendValidation400(res, errors.array());
+
+      const { packageId, date, people = {}, tourType, isExclusive } = req.body || {};
+      const pkg = await Package.findById(packageId).lean();
+      if (!pkg || pkg.active === false) {
+        return res.status(404).json({ message: "Paquete no encontrado" });
+      }
+
+      const d = parseDateFlexible(date);
+      if (!d) return res.status(400).json({ message: "Fecha inválida" });
+
+      let adults = clamp(toNum(people.adults, 1), 1, 15);
+      let children = clamp(toNum(people.children, 0), 0, 15);
+      let totalPeople = Math.max(1, adults + children);
+      if (totalPeople > 15) {
+        const overflow = totalPeople - 15;
+        children = Math.max(0, children - overflow);
+        totalPeople = Math.max(1, adults + children);
+      }
+
+      const finalTourType =
+        typeof isExclusive === "boolean"
+          ? isExclusive
+            ? "exclusive"
+            : "collective"
+          : tourType === "exclusive"
+          ? "exclusive"
+          : "collective";
+
+      const today = new Date();
+      const midnight = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+      const tourDayStart = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+      const tourDayEnd = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1));
+      const diasAntes = Math.max(0, Math.ceil((tourDayStart - midnight) / 86400000));
+      const fechaISO = tourDayStart.toISOString().slice(0, 10);
+
+      const cap = Number(pkg?.dailyCapacity ?? pkg?.capacity ?? pkg?.maxPeople ?? 0);
+      const capacidad = Number.isFinite(cap) && cap > 0 ? cap : 1;
+
+      const agg = await Booking.aggregate([
+        {
+          $match: {
+            package: pkg._id,
+            date: { $gte: tourDayStart, $lt: tourDayEnd },
+            status: { $ne: "Cancelado" },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            people: {
+              $sum: {
+                $add: [
+                  { $ifNull: ["$people.adults", 0] },
+                  { $ifNull: ["$people.children", 0] },
+                ],
+              },
+            },
+          },
+        },
+      ]);
+      const reservas = agg?.[0]?.people || 0;
+      const reservasIncluyendoActual = reservas + totalPeople;
+
+      const pricing = computeEffectiveUnitPrice(pkg, finalTourType, new Date(), {
+        reservas: reservasIncluyendoActual,
+        capacidad,
+        diasAntes,
+        fechaTour: fechaISO,
+        personas: totalPeople,
+      });
+
+      const isExclusiveTour = finalTourType === "exclusive";
+      const billedPeople = isExclusiveTour ? totalPeople : adults + children * 0.5;
+      const totalPrice = +(pricing.unitPrice * Math.max(1, billedPeople)).toFixed(2);
+
+      return res.json({
+        unitPrice: pricing.unitPrice,
+        currency: pricing.currency,
+        totalPrice,
+        demandMeta: pricing.demandMeta || null,
+        breakdown: {
+          basePrice: pricing.basePrice,
+          factorFeriado: pricing.demandMeta?.factorFeriado ?? null,
+          factorDemanda: pricing.demandMeta?.factorDemanda ?? null,
+          factorTiempo: pricing.demandMeta?.factorTiempo ?? null,
+          descuentoGrupo: pricing.demandMeta?.descuentoGrupo ?? null,
+          isHoliday: pricing.demandMeta?.isHoliday ?? false,
+          holidayName: pricing.demandMeta?.holidayName ?? null,
+          reservas: reservas,
+          capacidad,
+          disponibles: Math.max(0, capacidad - reservas),
+        },
+        isPromoActive: pricing.isPromoActive || false,
+      });
+    } catch (err) {
+      console.error("POST /api/bookings/quote error:", err);
+      res.status(500).json({ message: "No se pudo calcular el precio" });
     }
   }
 );
@@ -425,6 +737,12 @@ router.patch("/:id/status", auth("admin"), async (req, res) => {
 
     const updated = await Booking.findByIdAndUpdate(id, { status }, { new: true }).lean();
     if (!updated) return res.status(404).json({ message: "No encontrado" });
+    await logAdminAction(req, {
+      action: "booking_status_update",
+      entity: "booking",
+      entityId: id,
+      meta: { status },
+    });
     res.json(updated);
   } catch (e) {
     console.error("PATCH /api/bookings/:id/status error:", e);
@@ -450,6 +768,11 @@ router.patch("/bulk/status", auth("admin"), async (req, res) => {
 
     const result = await Booking.updateMany({ _id: { $in: safeIds } }, { $set: { status } });
 
+    await logAdminAction(req, {
+      action: "booking_status_bulk",
+      entity: "booking",
+      meta: { status, count: safeIds.length },
+    });
     res.json({
       ok: true,
       matched: result.matchedCount ?? result.n,

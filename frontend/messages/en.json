@@ -242,6 +242,7 @@
     "home": "Home",
     "packages": "Packages",
     "destinations": "Destinations",
+    "transport": "Transport",
     "about": "About",
     "testimonials": "Testimonials",
     "contact": "Contact",
@@ -262,6 +263,7 @@
     "groupSize": "Group size",
     "availability": "Availability",
     "languages": "Languages",
+    "category": "Category",
     "difficulty": "Difficulty",
     "minAge": "Minimum age",
     "startTimes": "Start times",
@@ -275,6 +277,8 @@
     "open": "Open",
 
     "whatsIncluded": "What's Included",
+    "whatToBring": "What to bring",
+    "recommendations": "Recommendations",
     "meetingInfo": "Meeting & drop-off",
     "meetingPoint": "Meeting point",
     "dropoffPoint": "Drop-off",
@@ -301,7 +305,9 @@
     "questions": "Questions?",
     "helpText": "Message us on WhatsApp or email — we'll help you plan your trip.",
     "chat": "Chat on WhatsApp",
+    "quickResponse": "Quick response • 24/7",
     "email": "Email us",
+    "emailDetail": "Detailed inquiries • Attachments",
 
     "readyToBook": "Ready to book this adventure?",
     "people": "people",
@@ -321,16 +327,22 @@
     "cookies": "Cookies Policy",
     "sitemap": "Sitemap",
     "contact": "Contact Us",
+    "openMaps": "Open Maps",
     "address": "Av. Juan de Arona 755, 11th Floor — San Isidro, Lima, Peru",
     "business": "Business Name",
     "businessValue": "Vicuña Adventures SAC",
     "ruc": "RUC",
     "rucValue": "20536830376",
+    "officialPhone": "Official number",
+    "secondaryPhone": "Secondary number",
+    "whatsapp": "WhatsApp",
+    "chatWhatsapp": "Chat WhatsApp",
     "phone": "Phone",
     "phoneValue": "+51 1 6196900",
     "email": "Email",
     "emailValue": "sales@vicuadvent.com",
-    "rights": "All rights reserved"
+    "rights": "All rights reserved",
+    "madeIn": "Made with ❤️ in Peru"
   },
 
   "WhatsApp": {
@@ -352,7 +364,18 @@
     "notesPlaceholder": "Additional details, preferences, or questions",
     "people": "People",
     "estimated": "Estimated total",
+    "liveQuote": "Live quote",
+    "finalPrice": "Final price (backend)",
+    "unit": "unit",
     "confirm": "Confirm booking",
+    "tourType": {
+      "label": "Exclusive tour (private)",
+      "short": "Tour",
+      "exclusive": "Exclusive",
+      "collective": "Collective",
+      "exclusiveHelp": "Only you/your group will join this tour.",
+      "collectiveHelp": "You may share the tour with other travelers."
+    },
     "sending": "Sending...",
     "success": {
       "sent": "Booking sent! Please check your email for confirmation."

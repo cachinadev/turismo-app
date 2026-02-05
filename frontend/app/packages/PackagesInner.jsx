@@ -5,10 +5,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { API_BASE } from '@/app/lib/config';
 import { mediaUrl } from '@/app/lib/media';
-import 'leaflet/dist/leaflet.css';
 
 /* =================== Translation helper =================== */
 async function loadMessages(locale) {
@@ -77,170 +77,22 @@ const withinBounds = (p, b) => {
   );
 };
 
-/* =================== Leaflet Map (inline) =================== */
-/**
- * PackagesMap: tiny Leaflet wrapper with thumbnail markers
- * Props:
- * - packages: Array<{ location:{lat,lng}, title, price/effectivePrice, currency, markerThumb, _id/id/slug }>
- * - center: {lat,lng} default center
- * - zoom: number
- * - onSelect(pkg) / selectedId
- * - onBoundsChanged({n,s,e,w})
- * - t: translations dict for map strings
- */
-function PackagesMap({
-  packages = [],
-  center = CITY_CENTER.Others,
-  zoom = 5,
-  selectedId,
-  onSelect,
-  onBoundsChanged,
-  t = {},
-}) {
-  const mapRef = useRef(null);
-  const LRef = useRef(null);      // keep leaflet module
-  const markersRef = useRef([]);  // keep current markers
+const MapLoading = ({ label }) => (
+  <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+    <div className="h-[70vh] flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl">
+      <div className="text-center">
+        <p className="font-bree text-xl mb-2" style={{ color: '#0E374A' }}>
+          {label}
+        </p>
+      </div>
+    </div>
+  </div>
+);
 
-  // init map once
-  useEffect(() => {
-    let mounted = true;
-
-    (async () => {
-      const L = (await import('leaflet')).default;
-      if (!mounted) return;
-      LRef.current = L;
-
-      // Fix default icon paths when bundling with Next
-      delete L.Icon.Default.prototype._getIconUrl;
-
-      const map = L.map(mapRef.current, {
-        center: [center.lat, center.lng],
-        zoom,
-        scrollWheelZoom: true,
-      });
-
-      // OSM tiles
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 18,
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      }).addTo(map);
-
-      // report bounds
-      const report = () => {
-        const b = map.getBounds();
-        onBoundsChanged?.({
-          n: b.getNorth(), s: b.getSouth(),
-          e: b.getEast(),  w: b.getWest(),
-        });
-      };
-      map.on('moveend', report);
-      setTimeout(report, 0);
-
-      // fit to markers if any
-      if (packages.length > 0) {
-        const bounds = L.latLngBounds(
-          packages.map(p => [p.location.lat, p.location.lng])
-        );
-        if (bounds.isValid()) {
-          map.fitBounds(bounds.pad(0.2), { animate: false });
-        }
-      }
-
-      // save leaflet map instance
-      mapRef.current._leafletInstance = map;
-    })();
-
-    return () => { 
-      mounted = false;
-      // Cleanup map instance
-      if (mapRef.current?._leafletInstance) {
-        mapRef.current._leafletInstance.remove();
-        mapRef.current._leafletInstance = null;
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // render markers when packages change
-  useEffect(() => {
-    const map = mapRef.current?._leafletInstance;
-    const L = LRef.current;
-    if (!map || !L) return;
-
-    // clear old
-    markersRef.current.forEach(m => m.remove());
-    markersRef.current = [];
-
-    // add new
-    packages.forEach((p) => {
-      const isSel = (p._id || p.id || p.slug) === selectedId;
-
-      const icon = L.divIcon({
-        className: 'thumb-marker',
-        html: `
-          <div class="thumb-wrap ${isSel ? 'thumb-selected' : ''}">
-            <div class="thumb-img" style="background-image:url('${(p.markerThumb || '').replace(/'/g, "\\'")}')"></div>
-            <div class="thumb-price">${money(Number(p.effectivePrice ?? p.price), p.currency)}</div>
-          </div>
-        `,
-        iconSize: [80, 84],
-        iconAnchor: [40, 84],
-        popupAnchor: [0, -90],
-      });
-
-      const marker = L.marker([p.location.lat, p.location.lng], { icon })
-        .addTo(map)
-        .on('click', () => onSelect?.(p));
-
-      marker.bindTooltip(
-        `<div style="font-weight:600">${p.title || 'Package'}</div>
-         <div style="font-size:12px;opacity:.8">${p.city || ''}</div>`,
-        { direction: 'top', offset: L.point(0, -80), opacity: 0.9 }
-      );
-
-      markersRef.current.push(marker);
-    });
-
-    // CSS for markers (scoped via a style tag)
-    const styleId = 'thumb-marker-style';
-    if (!document.getElementById(styleId)) {
-      const style = document.createElement('style');
-      style.id = styleId;
-      style.innerHTML = `
-        .thumb-marker .thumb-wrap{
-          position: relative;
-          width: 80px; height: 80px;
-          border-radius: 16px;
-          box-shadow: 0 6px 18px rgba(0,0,0,.18);
-          overflow: hidden;
-          border: 2px solid rgba(255,255,255,.9);
-          background: #fff;
-        }
-        .thumb-marker .thumb-wrap.thumb-selected{ outline: 3px solid #2f855a; }
-        .thumb-marker .thumb-img{
-          width: 100%; height: 100%;
-          background-size: cover;
-          background-position: center;
-          transform: scale(1.0);
-          transition: transform .2s ease;
-        }
-        .thumb-marker .thumb-wrap:hover .thumb-img{ transform: scale(1.06); }
-        .thumb-marker .thumb-price{
-          position: absolute; left: 6px; bottom: 6px;
-          padding: 2px 6px; border-radius: 10px;
-          background: rgba(0,0,0,.65); color:#fff;
-          font-size: 11px; font-weight: 600;
-        }
-      `;
-      document.head.appendChild(style);
-    }
-  }, [packages, selectedId, onSelect]);
-
-  return (
-    <div ref={mapRef} className="h-[70vh] w-full rounded-xl border border-slate-200 shadow overflow-hidden" />
-  );
-}
+const PackagesMapLazy = dynamic(() => import('@/app/components/PackagesMapLeaflet'), {
+  ssr: false,
+  loading: () => <MapLoading label="Loading map..." />,
+});
 
 /* =================== Main Page (list + map) =================== */
 
@@ -683,22 +535,20 @@ export default function PackagesInner({ initial }) {
       ) : view === 'map' ? (
         // NoSSR gate for map (prevents hydration mismatch)
         !isClient ? (
-          <div className="card">
-            <div className="h-[70vh] w-full bg-slate-100 rounded-xl flex items-center justify-center">
-              <p className="text-slate-500">{tr(tt,'loadingMap','Loading map...')}</p>
-            </div>
-          </div>
+          <MapLoading label={tr(tt,'loadingMap','Loading map...')} />
         ) : (
           <div className="relative card">
             <div className="card-body p-0">
-              <PackagesMap
+              <PackagesMapLazy
                 packages={mapPackages}
                 onSelect={(p) => setSelectedId(p?._id || p?.id || p?.slug)}
                 selectedId={selectedId}
                 onBoundsChanged={(b) => setMapBounds(b)} // expects {n,s,e,w}
                 center={CITY_CENTER.Others}
                 zoom={5}
-                t={tt}
+                formatPrice={(v, c) => money(v, c)}
+                titleFallback={tr(tt, 'package', 'Package')}
+                className="h-[70vh] w-full rounded-xl border border-slate-200 shadow overflow-hidden"
               />
             </div>
 

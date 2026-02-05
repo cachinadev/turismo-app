@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+const { logAdminAction } = require('../utils/adminLog');
 
 const router = express.Router();
 
@@ -82,6 +83,14 @@ function getRefreshTokenFromReq(req) {
   );
 }
 
+function getAccessTokenFromReq(req) {
+  const header = req.headers.authorization || req.headers.Authorization || '';
+  if (typeof header === 'string' && header.startsWith('Bearer ')) {
+    return header.slice('Bearer '.length).trim();
+  }
+  return null;
+}
+
 /* ------------------------ Rate limits ------------------------ */
 const loginLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
@@ -152,6 +161,16 @@ router.post(
 
       setRefreshCookie(res, refreshToken);
 
+      if (user.role === 'admin') {
+        req.user = { id: user._id, role: user.role, name: user.name, email: user.email };
+        await logAdminAction(req, {
+          action: 'admin_login',
+          entity: 'user',
+          entityId: String(user._id),
+          meta: { email: user.email },
+        });
+      }
+
       return res.json({
         token: accessToken,
         user: { id: user._id, name: user.name, email: user.email, role: user.role },
@@ -221,9 +240,44 @@ router.post('/refresh', async (req, res) => {
 /**
  * POST /api/auth/logout
  */
-router.post('/logout', (_req, res) => {
-  res.clearCookie('refresh_token', { path: '/api/auth', domain: COOKIE_DOMAIN || undefined });
-  res.json({ ok: true });
+router.post('/logout', async (req, res) => {
+  try {
+    const token = getAccessTokenFromReq(req);
+    if (token) {
+      try {
+        const aud = String(JWT_AUDIENCE || '').trim();
+        const audience = aud.includes(',')
+          ? aud.split(',').map((s) => s.trim()).filter(Boolean)
+          : aud;
+
+        const decoded = jwt.verify(token, JWT_SECRET, {
+          issuer: JWT_ISSUER,
+          audience: audience || undefined,
+          clockTolerance: 5,
+        });
+
+        if (decoded?.role === 'admin') {
+          req.user = {
+            id: decoded.id || decoded.sub,
+            role: decoded.role,
+            email: decoded.email,
+            name: decoded.name,
+          };
+          await logAdminAction(req, {
+            action: 'admin_logout',
+            entity: 'user',
+            entityId: decoded.id || decoded.sub,
+            meta: { email: decoded.email },
+          });
+        }
+      } catch {
+        // ignore invalid token on logout
+      }
+    }
+  } finally {
+    res.clearCookie('refresh_token', { path: '/api/auth', domain: COOKIE_DOMAIN || undefined });
+    res.json({ ok: true });
+  }
 });
 
 module.exports = router;

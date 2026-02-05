@@ -231,7 +231,11 @@ export default async function BrochurePage({ params }) {
               <div>{process.env.NEXT_PUBLIC_ADDRESS || "Puno, Perú"}</div>
             </div>
             <div className="md:text-right">
-              <div>{process.env.NEXT_PUBLIC_PHONE || "+51 ..."}</div>
+              <div>
+                {process.env.NEXT_PUBLIC_CONTACT_PHONE_OFFICIAL ||
+                  process.env.NEXT_PUBLIC_CONTACT_PHONE ||
+                  "+51953858267"}
+              </div>
               <div>{process.env.NEXT_PUBLIC_EMAIL_SALES || "sales@example.com"}</div>
               <div className="opacity-80">
                 {process.env.NEXT_PUBLIC_BRAND_NAME || "Brand"}

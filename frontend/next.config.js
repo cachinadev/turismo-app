@@ -25,8 +25,6 @@ const nextConfig = {
       },
       { protocol: 'https', hostname: 'www.vicuadvent.com', pathname: '/uploads/**' },
       { protocol: 'https', hostname: 'vicuadvent.com', pathname: '/uploads/**' },
-      { protocol: 'https', hostname: 'www.titilab.store', pathname: '/uploads/**' },
-      { protocol: 'https', hostname: 'titilab.store', pathname: '/uploads/**' },
       // 🆕 Agregado para imágenes temporales de Unsplash
       { protocol: 'https', hostname: 'images.unsplash.com', pathname: '/**' },
     ],

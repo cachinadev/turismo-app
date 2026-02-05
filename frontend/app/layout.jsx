@@ -4,6 +4,7 @@ import NavBar from "./components/NavBar";
 import Footer from "./components/Footer";
 import WhatsAppFloat from "./components/WhatsAppFloat";
 import TelegramFloat from "./components/TelegramFloat";
+import SkipLink from "./components/SkipLink";
 import { Bree_Serif, Playfair_Display } from "next/font/google";
 
 /* ------------------------------------------------------
@@ -116,14 +117,7 @@ export default function RootLayout({ children }) {
         style={{ backgroundColor: BRAND_COLORS.background }}
       >
         {/* Accessibility: Skip link */}
-        <a
-          href="#content"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 z-[9999]
-                     bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-lg
-                     font-bree-serif font-bold text-slate-900"
-        >
-          Ir al contenido principal
-        </a>
+        <SkipLink />
 
         {/* Global Header */}
         <header className="relative z-50">

@@ -4,6 +4,7 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { API_BASE } from '@/app/lib/config';
+import { trackEvent } from '@/app/lib/analytics';
 
 /* ------------------------------------------------------
  * 🌍 Supported locales
@@ -126,10 +127,6 @@ function formatMoney(amount, currency = 'PEN') {
 function resolveUnitPrice(pkg, isExclusive) {
   const currency = String(pkg?.currency || 'PEN');
 
-  // promo (if your API provides this)
-  const promoActive = !!pkg?.isPromoActive && Number.isFinite(Number(pkg?.effectivePrice));
-  const promoUnit = promoActive ? toNumber(pkg?.effectivePrice) : 0;
-
   // exclusive vs collective base
   const exclusiveBase =
     toNumber(pkg?.exclusivePrice) ||
@@ -141,14 +138,46 @@ function resolveUnitPrice(pkg, isExclusive) {
     toNumber(pkg?.collectivePrice) ||
     0;
 
-  // If promo is active, prefer promoUnit (but if promoUnit is 0, ignore it)
-  if (promoActive && promoUnit > 0) {
-    return { unit: promoUnit, currency, promoActive: true, base: isExclusive ? (exclusiveBase || collectiveBase) : collectiveBase };
+  const base = isExclusive ? (exclusiveBase || collectiveBase) : collectiveBase;
+  const promoActive = !!pkg?.isPromoActive;
+  const promoPrice = toNumber(pkg?.promoPrice);
+  const promoPercent = toNumber(pkg?.promoPercent);
+
+  if (promoActive) {
+    // Exclusive tours ignore promos entirely.
+    if (isExclusive) {
+      return { unit: base, currency, promoActive: false, base };
+    }
+
+    // Collective: prefer backend effectivePrice if available.
+    if (Number.isFinite(Number(pkg?.effectivePrice))) {
+      const unit = toNumber(pkg?.effectivePrice);
+      if (unit > 0) return { unit, currency, promoActive: true, base };
+    }
+
+    const unit =
+      promoPrice > 0 ? promoPrice : promoPercent > 0 ? base * (1 - promoPercent / 100) : base;
+    return { unit, currency, promoActive: true, base };
   }
 
   // Otherwise choose by tour type
-  const unit = isExclusive ? (exclusiveBase || collectiveBase) : collectiveBase;
-  return { unit, currency, promoActive: false, base: isExclusive ? (exclusiveBase || collectiveBase) : collectiveBase };
+  return { unit: base, currency, promoActive: false, base };
+}
+
+function calcularPrecioExclusive(precioBase, personas) {
+  let descuento = 0;
+  const p = Math.max(1, Number(personas || 1));
+
+  if (p === 1) descuento = 0;
+  else if (p <= 3) descuento = 0.05;
+  else if (p <= 5) descuento = 0.10;
+  else if (p === 6) descuento = 0.15;
+  else if (p <= 8) descuento = 0.20;
+  else if (p <= 15) descuento = 0.25;
+  else descuento = 0.30;
+
+  const precioUnitario = Math.round(Math.max(0, Number(precioBase || 0)) * (1 - descuento));
+  return { precioUnitario, descuento };
 }
 
 /* ------------------------------------------------------
@@ -184,15 +213,27 @@ export default function BookingForm({ pkg }) {
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState({ type: '', msg: '' });
   const [serverPricing, setServerPricing] = useState(null); // { unitPrice, totalPrice, currency }
+  const [quotePricing, setQuotePricing] = useState(null); // backend quote before submit
   const honeypotRef = useRef(null);
 
   /* ---------- Pricing (UI estimate with robust fallbacks) ---------- */
-  const totalPeople = Math.max(1, Number(form.adults || 0) + Number(form.children || 0));
+  const adultsCount = Number(form.adults || 0);
+  const childrenCount = Number(form.children || 0);
+  const totalPeople = Math.max(1, adultsCount + childrenCount);
   const pricing = useMemo(() => resolveUnitPrice(pkg, !!form.isExclusive), [pkg, form.isExclusive]);
 
-  const uiUnitPrice = pricing.unit;
+  const baseUnitPrice = pricing.unit;
+  const uiUnitPrice = form.isExclusive
+    ? calcularPrecioExclusive(baseUnitPrice, totalPeople).precioUnitario
+    : baseUnitPrice;
   const uiCurrency = pricing.currency;
-  const uiTotal = uiUnitPrice * totalPeople;
+  const billedPeople = form.isExclusive ? totalPeople : adultsCount + childrenCount * 0.5;
+  const uiTotal = uiUnitPrice * Math.max(1, billedPeople);
+
+  const displayTotal = serverPricing?.totalPrice ?? quotePricing?.totalPrice ?? uiTotal;
+  const displayCurrency = serverPricing?.currency || quotePricing?.currency || uiCurrency;
+  const displayUnit = serverPricing?.unitPrice ?? quotePricing?.unitPrice ?? uiUnitPrice;
+  const displayBreakdown = quotePricing?.breakdown || null;
 
   const hasValidPrice = uiUnitPrice > 0;
 
@@ -201,6 +242,20 @@ export default function BookingForm({ pkg }) {
   /* ---------- Handlers ---------- */
   function onChange(e) {
     const { name, value, type, checked } = e.target;
+    if (name === 'adults' || name === 'children') {
+      const raw = Number(String(value || '0').replace(/[^\d]/g, ''));
+      const nextVal = Math.max(0, Math.min(15, raw));
+      setForm((prev) => {
+        const adults = name === 'adults' ? Math.max(1, nextVal) : Math.max(1, Number(prev.adults || 1));
+        const children = name === 'children' ? nextVal : Math.max(0, Number(prev.children || 0));
+        const total = adults + children;
+        if (total <= 15) return { ...prev, adults, children };
+        const overflow = total - 15;
+        const reducedChildren = Math.max(0, children - overflow);
+        return { ...prev, adults, children: reducedChildren };
+      });
+      return;
+    }
     setForm((prev) => ({
       ...prev,
       [name]:
@@ -215,8 +270,8 @@ export default function BookingForm({ pkg }) {
   function clampNumbers() {
     setForm((prev) => ({
       ...prev,
-      adults: Math.max(1, Number(prev.adults || 1)),
-      children: Math.max(0, Number(prev.children || 0)),
+      adults: Math.max(1, Math.min(15, Number(prev.adults || 1))),
+      children: Math.max(0, Math.min(15, Number(prev.children || 0))),
     }));
   }
 
@@ -236,6 +291,49 @@ export default function BookingForm({ pkg }) {
     return null;
   }
 
+  useEffect(() => {
+    const pkgId = pkg?._id || pkg?.id;
+    if (!pkgId || !form.date) {
+      setQuotePricing(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/bookings/quote`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            packageId: pkgId,
+            date: form.date,
+            people: { adults: Number(form.adults || 1), children: Number(form.children || 0) },
+            tourType: form.isExclusive ? 'exclusive' : 'collective',
+            isExclusive: !!form.isExclusive,
+          }),
+          signal: controller.signal,
+        });
+
+        if (!res.ok) throw new Error('quote_failed');
+        const data = await res.json().catch(() => ({}));
+        setQuotePricing({
+          unitPrice: data?.unitPrice ?? null,
+          totalPrice: data?.totalPrice ?? null,
+          currency: data?.currency || uiCurrency,
+          breakdown: data?.breakdown || null,
+        });
+      } catch (err) {
+        if (err?.name === 'AbortError') return;
+        setQuotePricing(null);
+      }
+    }, 450);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [pkg?._id, pkg?.id, form.date, form.adults, form.children, form.isExclusive, uiCurrency]);
+
   async function submit(e) {
     e.preventDefault();
     if (loading) return;
@@ -251,15 +349,24 @@ export default function BookingForm({ pkg }) {
     }
 
     setLoading(true);
+    trackEvent('booking_submit', {
+      packageId: pkg?._id || pkg?.id || null,
+      date: form.date,
+      tourType: form.isExclusive ? 'exclusive' : 'collective',
+      adults: Number(form.adults || 0),
+      children: Number(form.children || 0),
+      locale: currentLocale,
+    });
     try {
       const sourceUrl = typeof window !== 'undefined' ? window.location.href : '';
 
       // ✅ Do NOT send unitPrice/currency from frontend — backend is truth.
+      const packageId = pkg?._id || pkg?.id;
       const res = await fetch(`${API_BASE}/api/bookings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          packageId: pkg._id,
+          packageId,
           date: form.date,
           people: {
             adults: Number(form.adults),
@@ -298,6 +405,18 @@ export default function BookingForm({ pkg }) {
           data?.reservationId
             ? `${t('success.sent')} (ID: ${data.reservationId})`
             : t('success.sent'),
+      });
+
+      trackEvent('booking_success', {
+        reservationId: data?.reservationId || null,
+        packageId: pkg?._id || pkg?.id || null,
+        totalPrice: data?.totalPrice ?? null,
+        unitPrice: data?.unitPrice ?? null,
+        currency: data?.currency || uiCurrency,
+        tourType: form.isExclusive ? 'exclusive' : 'collective',
+        adults: Number(form.adults || 0),
+        children: Number(form.children || 0),
+        locale: currentLocale,
       });
 
       setForm((prev) => ({
@@ -369,11 +488,11 @@ export default function BookingForm({ pkg }) {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="label" htmlFor="adults">{t('adults')}</label>
-            <input id="adults" name="adults" type="number" min={1} value={form.adults} onChange={onChange} onBlur={clampNumbers} className="input w-full" disabled={loading} required />
+            <input id="adults" name="adults" type="number" min={1} max={15} value={form.adults} onChange={onChange} onBlur={clampNumbers} className="input w-full" disabled={loading} required />
           </div>
           <div>
             <label className="label" htmlFor="children">{t('children')}</label>
-            <input id="children" name="children" type="number" min={0} value={form.children} onChange={onChange} onBlur={clampNumbers} className="input w-full" disabled={loading} />
+            <input id="children" name="children" type="number" min={0} max={15} value={form.children} onChange={onChange} onBlur={clampNumbers} className="input w-full" disabled={loading} />
           </div>
         </div>
 
@@ -421,16 +540,20 @@ export default function BookingForm({ pkg }) {
             <div className="mt-1">
               {t('estimated')}:{' '}
               {hasValidPrice ? (
-                <span className="font-semibold">{formatMoney(uiTotal, uiCurrency)}</span>
+                <span className="font-semibold">{formatMoney(displayTotal, displayCurrency)}</span>
               ) : (
                 <span className="font-semibold text-amber-700">{t('error.noPrice')}</span>
               )}
             </div>
 
-            {/* Show backend truth after submit */}
             {serverPricing?.totalPrice != null && (
               <div className="mt-1 text-xs text-slate-500">
-                Backend: <b>{formatMoney(serverPricing.totalPrice, serverPricing.currency)}</b> (unit: {formatMoney(serverPricing.unitPrice, serverPricing.currency)})
+                {t('finalPrice')}: <b>{formatMoney(displayTotal, displayCurrency)}</b> ({t('unit')}: {formatMoney(displayUnit, displayCurrency)})
+              </div>
+            )}
+            {!serverPricing?.totalPrice && quotePricing?.totalPrice != null && (
+              <div className="mt-1 text-xs text-slate-500">
+                {t('liveQuote')}: <b>{formatMoney(displayTotal, displayCurrency)}</b> ({t('unit')}: {formatMoney(displayUnit, displayCurrency)})
               </div>
             )}
           </div>
