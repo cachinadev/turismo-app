@@ -11,11 +11,16 @@ export const API_BASE = normalizeBase(
   "http://localhost:4000" // dev fallback
 );
 
-// In production force uploads to api.vicuadvent.com
-const UPLOADS_BASE =
-  process.env.NODE_ENV === "production"
-    ? "https://api.vicuadvent.com"
-    : API_BASE;
+function stripApiSuffix(base) {
+  return String(base || "").replace(/\/api\/?$/i, "");
+}
+
+// Uploads can live on the main domain (e.g. https://vicuadvent.com/uploads)
+// Allow explicit override via NEXT_PUBLIC_UPLOADS_BASE.
+const UPLOADS_BASE = normalizeBase(
+  process.env.NEXT_PUBLIC_UPLOADS_BASE ||
+  stripApiSuffix(API_BASE)
+);
 
 /**
  * Resolve media URLs consistently across environments

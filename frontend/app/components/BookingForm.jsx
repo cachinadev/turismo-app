@@ -291,9 +291,14 @@ export default function BookingForm({ pkg }) {
     return null;
   }
 
+  const promoActive =
+    !!pkg?.isPromoActive ||
+    Number(pkg?.promoPrice) > 0 ||
+    Number(pkg?.promoPercent) > 0;
+
   useEffect(() => {
     const pkgId = pkg?._id || pkg?.id;
-    if (!pkgId || !form.date) {
+    if (!pkgId || !form.date || !promoActive) {
       setQuotePricing(null);
       return;
     }
@@ -332,7 +337,7 @@ export default function BookingForm({ pkg }) {
       controller.abort();
       clearTimeout(timer);
     };
-  }, [pkg?._id, pkg?.id, form.date, form.adults, form.children, form.isExclusive, uiCurrency]);
+  }, [pkg?._id, pkg?.id, form.date, form.adults, form.children, form.isExclusive, uiCurrency, promoActive]);
 
   async function submit(e) {
     e.preventDefault();
