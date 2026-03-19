@@ -2,6 +2,7 @@
 const express = require("express");
 const { body, validationResult } = require("express-validator");
 const mongoose = require("mongoose");
+const rateLimit = require("express-rate-limit");
 
 const Booking = require("../models/Booking");
 const Package = require("../models/Package");
@@ -11,8 +12,32 @@ const { sendBookingEmails } = require("../utils/mailer");
 
 const router = express.Router();
 
+const lookupLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Demasiadas consultas. Intenta más tarde." },
+});
+
+const quoteLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Demasiadas cotizaciones. Intenta más tarde." },
+});
+
+const createBookingLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 12,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Demasiadas reservas. Intenta más tarde." },
+});
+
 // Public lookup by reservationId (limited info)
-router.get("/lookup", async (req, res) => {
+router.get("/lookup", lookupLimiter, async (req, res) => {
   try {
     const reservationId = String(req.query.reservationId || "").trim();
     if (!reservationId) return res.status(400).json({ message: "reservationId requerido" });
@@ -282,6 +307,7 @@ function parseLimit(v, def = 20) {
  * ========================================================= */
 router.post(
   "/",
+  createBookingLimiter,
   [
     body("date").notEmpty().withMessage("date requerido"),
 
@@ -501,6 +527,7 @@ router.post(
 /* ===================== Quote (public) ===================== */
 router.post(
   "/quote",
+  quoteLimiter,
   [
     body("packageId").isMongoId(),
     body("date").isString().notEmpty(),

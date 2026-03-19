@@ -14,7 +14,7 @@ const router = express.Router();
 
 /* ------------------------ Config ------------------------ */
 const {
-  JWT_SECRET   = 'change_me',
+  JWT_SECRET,
   JWT_ISSUER   = 'turismo-api',
   JWT_AUDIENCE = 'turismo-frontend',
   ACCESS_TTL   = '8h',

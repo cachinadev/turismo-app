@@ -5,16 +5,21 @@ const User = require('../models/User');
 module.exports = async function seedAdmin() {
   try {
     // --- 1) Read env & normalize
-    const emailRaw = process.env.ADMIN_EMAIL || 'admin@vicuadvent.com';
+    const emailRaw = process.env.ADMIN_EMAIL || '';
     const email = String(emailRaw).trim().toLowerCase();
     const name = process.env.ADMIN_NAME || 'Admin';
-    const password = process.env.ADMIN_PASSWORD || 'ChangeMe123!';
+    const password = String(process.env.ADMIN_PASSWORD || '');
     const forcePromote = String(process.env.ADMIN_FORCE_PROMOTE || '').trim() === '1';
     const resetPassword = String(process.env.ADMIN_RESET_PASSWORD || '').trim() === '1';
     const rounds = Number(process.env.BCRYPT_ROUNDS || 10);
 
     if (!email) {
       console.warn('⚠️  ADMIN_EMAIL is empty; skipping admin seed.');
+      return;
+    }
+
+    if (!password) {
+      console.warn('⚠️  ADMIN_PASSWORD is empty; skipping admin seed.');
       return;
     }
 

@@ -2,8 +2,30 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const nodemailer = require('nodemailer');
+const rateLimit = require('express-rate-limit');
 
 const router = express.Router();
+
+const contactLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 8,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Demasiadas solicitudes. Intenta más tarde.' },
+});
+
+function escHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function safeText(value, max = 500) {
+  return String(value || '').trim().slice(0, max);
+}
 
 function buildTransporter() {
   return nodemailer.createTransport({
@@ -14,6 +36,10 @@ function buildTransporter() {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
+    tls:
+      String(process.env.SMTP_ALLOW_INVALID_CERTS || '0') === '1'
+        ? { rejectUnauthorized: false }
+        : undefined,
   });
 }
 
@@ -23,12 +49,13 @@ function buildTransporter() {
  */
 router.post(
   '/',
+  contactLimiter,
   [
-    body('name').isString().trim().notEmpty(),
+    body('name').isString().trim().isLength({ min: 2, max: 120 }),
     body('email').isEmail().normalizeEmail(),
-    body('message').isString().trim().isLength({ min: 5 }),
-    body('phone').optional().isString().trim(),
-    body('pageUrl').optional().isString().trim(),
+    body('message').isString().trim().isLength({ min: 5, max: 4000 }),
+    body('phone').optional().isString().trim().isLength({ max: 40 }),
+    body('pageUrl').optional().isURL({ require_protocol: true }).isLength({ max: 500 }),
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -36,7 +63,11 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { name, email, phone, message, pageUrl } = req.body;
+    const name = safeText(req.body.name, 120);
+    const email = safeText(req.body.email, 180).toLowerCase();
+    const phone = safeText(req.body.phone, 40);
+    const message = safeText(req.body.message, 4000);
+    const pageUrl = safeText(req.body.pageUrl, 500);
 
     const from = process.env.SMTP_FROM || 'no-reply@example.com';
     const to = process.env.CONTACT_TO || process.env.ADMIN_EMAIL || 'admin@example.com';
@@ -46,12 +77,12 @@ router.post(
     const subject = `Nuevo contacto web – ${name}`;
     const html = `
       <h2>Nuevo mensaje de contacto</h2>
-      <p><b>Nombre:</b> ${name}</p>
-      <p><b>Email:</b> ${email}</p>
-      <p><b>Teléfono:</b> ${phone || '-'}</p>
-      ${pageUrl ? `<p><b>Origen:</b> <a href="${pageUrl}">${pageUrl}</a></p>` : ''}
+      <p><b>Nombre:</b> ${escHtml(name)}</p>
+      <p><b>Email:</b> ${escHtml(email)}</p>
+      <p><b>Teléfono:</b> ${escHtml(phone || '-')}</p>
+      ${pageUrl ? `<p><b>Origen:</b> <a href="${escHtml(pageUrl)}">${escHtml(pageUrl)}</a></p>` : ''}
       <hr/>
-      <p>${(message || '').replace(/\n/g, '<br/>')}</p>
+      <p>${escHtml(message).replace(/\n/g, '<br/>')}</p>
     `;
 
     try {
