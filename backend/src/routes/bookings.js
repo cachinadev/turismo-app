@@ -7,6 +7,7 @@ const rateLimit = require("express-rate-limit");
 const Booking = require("../models/Booking");
 const Package = require("../models/Package");
 const auth = require("../middleware/auth");
+const { getHolidayFactor } = require("../config/holidays");
 const { logAdminAction } = require("../utils/adminLog");
 const { sendBookingEmails } = require("../utils/mailer");
 
@@ -83,38 +84,8 @@ const FF_SCALE = Object.freeze({
   muy_alto: 1.5,
 });
 
-const HOLIDAYS_2026_PE = Object.freeze({
-  "2026-04-02": { name: "Semana Santa (Jueves)", impact: "muy_alto" },
-  "2026-04-03": { name: "Semana Santa (Viernes)", impact: "muy_alto" },
-  "2026-05-01": { name: "Día del Trabajo", impact: "medio" },
-  "2026-06-07": { name: "Batalla de Arica y Día de la Bandera", impact: "bajo" },
-  "2026-06-29": { name: "San Pedro y San Pablo", impact: "medio" },
-  "2026-07-23": { name: "Día de la Fuerza Aérea del Perú", impact: "bajo" },
-  "2026-07-28": { name: "Fiestas Patrias", impact: "muy_alto" },
-  "2026-07-29": { name: "Fiestas Patrias", impact: "muy_alto" },
-  "2026-08-06": { name: "Batalla de Junín", impact: "medio" },
-  "2026-08-30": { name: "Santa Rosa de Lima", impact: "medio" },
-  "2026-10-08": { name: "Combate de Angamos", impact: "medio" },
-  "2026-11-01": { name: "Día de Todos los Santos", impact: "medio" },
-  "2026-12-08": { name: "Inmaculada Concepción", impact: "bajo" },
-  "2026-12-09": { name: "Batalla de Ayacucho", impact: "bajo" },
-  "2026-12-25": { name: "Navidad", impact: "bajo" },
-});
-
-function getFF(fechaISO, opts = {}) {
-  const capMax = typeof opts.capMax === "number" ? opts.capMax : FF_SCALE.muy_alto;
-  const info = HOLIDAYS_2026_PE[fechaISO];
-  if (!info) {
-    return { FF: FF_SCALE.normal, isHoliday: false, impact: "normal", name: null };
-  }
-  const impact = info.impact;
-  const rawFF = FF_SCALE[impact] ?? FF_SCALE.normal;
-  const FF = Math.min(rawFF, capMax);
-  return { FF, isHoliday: true, impact, name: info.name };
-}
-
 function getFactorFeriado(fechaISO) {
-  return getFF(fechaISO);
+  return getHolidayFactor(fechaISO, FF_SCALE);
 }
 
 function calcularPrecioFinal({

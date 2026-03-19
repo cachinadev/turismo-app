@@ -1,0 +1,17 @@
+{
+  "2026-04-02": { "name": "Semana Santa (Jueves)", "impact": "muy_alto" },
+  "2026-04-03": { "name": "Semana Santa (Viernes)", "impact": "muy_alto" },
+  "2026-05-01": { "name": "Dia del Trabajo", "impact": "medio" },
+  "2026-06-07": { "name": "Batalla de Arica y Dia de la Bandera", "impact": "bajo" },
+  "2026-06-29": { "name": "San Pedro y San Pablo", "impact": "medio" },
+  "2026-07-23": { "name": "Dia de la Fuerza Aerea del Peru", "impact": "bajo" },
+  "2026-07-28": { "name": "Fiestas Patrias", "impact": "muy_alto" },
+  "2026-07-29": { "name": "Fiestas Patrias", "impact": "muy_alto" },
+  "2026-08-06": { "name": "Batalla de Junin", "impact": "medio" },
+  "2026-08-30": { "name": "Santa Rosa de Lima", "impact": "medio" },
+  "2026-10-08": { "name": "Combate de Angamos", "impact": "medio" },
+  "2026-11-01": { "name": "Dia de Todos los Santos", "impact": "medio" },
+  "2026-12-08": { "name": "Inmaculada Concepcion", "impact": "bajo" },
+  "2026-12-09": { "name": "Batalla de Ayacucho", "impact": "bajo" },
+  "2026-12-25": { "name": "Navidad", "impact": "bajo" }
+}
