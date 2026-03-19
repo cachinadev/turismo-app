@@ -50,6 +50,22 @@ const uploadLimiter = rateLimit({
   message: { error: "Demasiadas cargas, intente más tarde." },
 });
 
+async function validateStoredPdf(filePath, originalName) {
+  const { fileTypeFromFile } = await import("file-type");
+  const info = await fileTypeFromFile(filePath).catch(() => null);
+  if (info?.mime === "application/pdf" && info?.ext === "pdf") return;
+
+  try {
+    fs.unlinkSync(filePath);
+  } catch {
+    // ignore cleanup failure; validation error still bubbles up
+  }
+
+  const err = new Error(`Archivo invalido o no permitido: ${originalName || "archivo"}`);
+  err.status = 400;
+  throw err;
+}
+
 router.post(
   "/upload",
   auth("admin"),
@@ -59,6 +75,7 @@ router.post(
     try {
       const file = req.file;
       if (!file) return res.status(400).json({ message: "PDF requerido" });
+      await validateStoredPdf(file.path, file.originalname);
 
       const base = getBaseUrl(req);
       const relativePath = `/uploads/brochures/${file.filename}`;
@@ -80,7 +97,10 @@ router.post(
         },
       });
     } catch (err) {
-      return res.status(500).json({ message: "No se pudo subir el brochure" });
+      const status = err?.status || 500;
+      return res.status(status).json({
+        message: status === 400 ? err.message : "No se pudo subir el brochure",
+      });
     }
   }
 );
