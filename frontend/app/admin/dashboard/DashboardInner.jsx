@@ -991,41 +991,41 @@ export default function DashboardInner() {
         )}
 
         <div className="flex flex-col gap-6">
-          <div className="space-y-6">
-            <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-[linear-gradient(135deg,_#0f172a_0%,_#164e63_55%,_#0f766e_100%)] px-5 py-5 text-white shadow-lg sm:px-6">
-              <div className="flex flex-col gap-4">
-                <div className="max-w-2xl">
-                  <div className="flex items-center gap-3">
+          <div className="space-y-5">
+            <div className="overflow-hidden rounded-[22px] border border-slate-200 bg-[linear-gradient(135deg,_#0f172a_0%,_#164e63_55%,_#0f766e_100%)] px-4 py-4 text-white shadow-lg sm:px-5 sm:py-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div className="max-w-3xl">
+                  <div className="flex items-center gap-2.5">
                     {COMPANY_LOGO ? (
                       <img
                         src={COMPANY_LOGO}
                         alt={COMPANY_NAME}
-                        className="h-12 w-12 rounded-2xl border border-white/20 bg-white/10 object-contain"
+                        className="h-10 w-10 rounded-2xl border border-white/20 bg-white/10 object-contain sm:h-11 sm:w-11"
                       />
                     ) : (
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-lg font-semibold">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-base font-semibold sm:h-11 sm:w-11">
                         {COMPANY_NAME.slice(0, 1).toUpperCase()}
                       </div>
                     )}
-                    <div className="text-sm uppercase tracking-[0.24em] text-cyan-100/80">
+                    <div className="text-[11px] uppercase tracking-[0.22em] text-cyan-100/80 sm:text-xs">
                       {t("dashboard.operationsHub", "Operations hub")}
                     </div>
                   </div>
 
-                  <h2 className="mt-3 max-w-xl text-[1.9rem] font-semibold tracking-tight leading-[1.02] sm:text-[2.05rem]">
+                  <h2 className="mt-2.5 max-w-2xl text-[1.55rem] font-semibold tracking-tight leading-[1.02] sm:text-[1.8rem] lg:text-[2rem]">
                     {COMPANY_NAME}
                   </h2>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-cyan-50/85">
+                  <p className="mt-2 max-w-2xl text-sm leading-5 text-cyan-50/85 sm:text-[15px]">
                     {t(
                       "dashboard.operationsSummary",
                       "Track new reservations, keep package content commercial-ready, and surface issues before they affect sales."
                     )}
                   </p>
 
-                  <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] sm:text-xs">
                     <span
                       className={classNames(
-                        "rounded-full border px-3 py-1.5",
+                        "rounded-full border px-3 py-1.5 leading-none",
                         online ? "border-emerald-300/40 bg-emerald-400/15 text-emerald-50" : "border-rose-300/40 bg-rose-400/15 text-rose-50"
                       )}
                     >
@@ -1044,16 +1044,16 @@ export default function DashboardInner() {
                   </div>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <label className="flex items-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-cyan-50">
+                <div className="grid gap-2 sm:grid-cols-2 xl:w-[520px] xl:grid-cols-2">
+                  <label className="flex min-h-[48px] items-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-3.5 py-2.5 text-sm text-cyan-50">
                     <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
                     {t("dashboard.autoRefresh", "Auto-refresh (30s)")}
                   </label>
-                  <button className="btn min-h-[56px] border-0 bg-white px-4 text-center text-slate-900 hover:bg-cyan-50" onClick={() => fetchAll()}>
+                  <button className="btn min-h-[48px] border-0 bg-white px-4 text-center text-slate-900 hover:bg-cyan-50" onClick={() => fetchAll()}>
                     {t("actions.refresh", "Refresh")}
                   </button>
                   <button
-                    className="btn min-h-[56px] border border-white/15 bg-white/10 px-4 text-center text-white hover:bg-white/20"
+                    className="btn min-h-[48px] border border-white/15 bg-white/10 px-4 text-center text-white hover:bg-white/20"
                     onClick={() => {
                       setTab("bookings");
                       markReservationsSeen();
@@ -1063,7 +1063,7 @@ export default function DashboardInner() {
                   </button>
                   <button
                     onClick={handleLogout}
-                    className="btn min-h-[56px] border border-white/15 bg-transparent px-4 text-center text-white hover:bg-white/10"
+                    className="btn min-h-[48px] border border-white/15 bg-transparent px-4 text-center text-white hover:bg-white/10"
                     title={t("actions.signOut", "Sign out")}
                   >
                     {t("actions.signOut", "Sign out")}
@@ -1073,13 +1073,13 @@ export default function DashboardInner() {
             </div>
           </div>
 
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.95fr)]">
+          <div className="grid gap-5">
             <div>
               <div>
                 <div className="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
                   {t("dashboard.performance", "Performance snapshot")}
                 </div>
-                <div className="grid grid-cols-2 gap-4 md:grid-cols-6">
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
                   <KPI title={t("kpi.totalPackages", "Total packages")} value={loadingStats ? "…" : uiStats?.packages?.total ?? packages.length} />
                   <KPI
                     title={t("kpi.activePackages", "Active packages")}
@@ -1109,7 +1109,7 @@ export default function DashboardInner() {
                 <div className="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
                   {t("dashboard.attentionQueue", "Attention queue")}
                 </div>
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                   {attentionCards.map((item) => (
                     <AttentionCard key={item.key} {...item} />
                   ))}
@@ -1118,10 +1118,10 @@ export default function DashboardInner() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 overflow-x-auto pb-1">
             <button
               className={classNames(
-                "px-3 py-2 rounded-lg border text-sm",
+                "whitespace-nowrap px-3 py-2 rounded-lg border text-sm",
                 tab === "bookings" ? "bg-slate-900 text-white border-slate-900" : "bg-white hover:bg-slate-50"
               )}
               onClick={() => setTab("bookings")}
@@ -1130,7 +1130,7 @@ export default function DashboardInner() {
             </button>
             <button
               className={classNames(
-                "px-3 py-2 rounded-lg border text-sm",
+                "whitespace-nowrap px-3 py-2 rounded-lg border text-sm",
                 tab === "packages" ? "bg-slate-900 text-white border-slate-900" : "bg-white hover:bg-slate-50"
               )}
               onClick={() => setTab("packages")}
@@ -1139,7 +1139,7 @@ export default function DashboardInner() {
             </button>
             <button
               className={classNames(
-                "px-3 py-2 rounded-lg border text-sm",
+                "whitespace-nowrap px-3 py-2 rounded-lg border text-sm",
                 tab === "testimonials" ? "bg-slate-900 text-white border-slate-900" : "bg-white hover:bg-slate-50"
               )}
               onClick={() => setTab("testimonials")}
@@ -1148,7 +1148,7 @@ export default function DashboardInner() {
             </button>
             <button
               className={classNames(
-                "px-3 py-2 rounded-lg border text-sm",
+                "whitespace-nowrap px-3 py-2 rounded-lg border text-sm",
                 tab === "events" ? "bg-slate-900 text-white border-slate-900" : "bg-white hover:bg-slate-50"
               )}
               onClick={() => setTab("events")}
@@ -1167,31 +1167,35 @@ export default function DashboardInner() {
         {/* ===================== TAB: BOOKINGS ===================== */}
         {tab === "bookings" && (
           <section className="mt-8 space-y-3">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-              <h3 className="text-xl font-semibold">{t("admin.bookings", "Bookings")}</h3>
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+              <div>
+                <h3 className="text-xl font-semibold">{t("admin.bookings", "Bookings")}</h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  {t("dashboard.bookingsOpsHint", "Update statuses, contact travelers, and export the current queue fast.")}
+                </p>
+              </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <button className="btn btn-ghost" onClick={() => exportBookingsCSVFromServer({ onlySelected: false })}>
-                  {t("bookings.exportFiltered", "Export (filtered)")}
-                </button>
-                <button className="btn btn-ghost" onClick={() => exportBookingsCSVFromServer({ onlySelected: true })}>
-                  {t("bookings.exportSelected", "Export (selected)")}
-                </button>
-                <button className="btn btn-ghost" onClick={selectAllOnPage}>
-                  {t("bookings.selectPage", "Select page")}
-                </button>
-                <button className="btn btn-ghost" onClick={clearSelection}>
-                  {t("bookings.clearSelection", "Clear selection")}
-                </button>
-
-                <div className="flex items-center gap-2">
-                  <button className="btn btn-ghost" onClick={() => bulkUpdateStatus("En proceso")}>
+              <div className="rounded-[18px] border border-slate-200/90 bg-slate-50/90 p-2 shadow-sm xl:max-w-[700px]">
+                <div className="flex flex-wrap gap-2">
+                  <button className="btn btn-ghost btn-sm h-9 rounded-xl px-3" onClick={() => exportBookingsCSVFromServer({ onlySelected: false })}>
+                    {t("bookings.exportFiltered", "Export (filtered)")}
+                  </button>
+                  <button className="btn btn-ghost btn-sm h-9 rounded-xl px-3" onClick={() => exportBookingsCSVFromServer({ onlySelected: true })}>
+                    {t("bookings.exportSelected", "Export (selected)")}
+                  </button>
+                  <button className="btn btn-ghost btn-sm h-9 rounded-xl px-3" onClick={selectAllOnPage}>
+                    {t("bookings.selectPage", "Select page")}
+                  </button>
+                  <button className="btn btn-ghost btn-sm h-9 rounded-xl px-3" onClick={clearSelection}>
+                    {t("bookings.clearSelection", "Clear selection")}
+                  </button>
+                  <button className="btn btn-ghost btn-sm h-9 rounded-xl px-3" onClick={() => bulkUpdateStatus("En proceso")}>
                     {t("bookings.bulkInProgress", "Bulk: In progress")}
                   </button>
-                  <button className="btn btn-ghost" onClick={() => bulkUpdateStatus("Finalizado")}>
+                  <button className="btn btn-ghost btn-sm h-9 rounded-xl px-3" onClick={() => bulkUpdateStatus("Finalizado")}>
                     {t("bookings.bulkFinalized", "Bulk: Finalized")}
                   </button>
-                  <button className="btn btn-ghost text-rose-700" onClick={() => bulkUpdateStatus("Cancelado")}>
+                  <button className="btn btn-ghost btn-sm h-9 rounded-xl px-3 text-rose-700" onClick={() => bulkUpdateStatus("Cancelado")}>
                     {t("bookings.bulkCancel", "Bulk: Cancel")}
                   </button>
                 </div>
@@ -1199,10 +1203,11 @@ export default function DashboardInner() {
             </div>
 
             {/* Filters */}
-            <div className="card">
-              <div className="card-body grid grid-cols-1 md:grid-cols-10 gap-3">
+            <div className="card rounded-[20px] border border-slate-200/90 shadow-sm">
+              <div className="card-body gap-3 py-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-10">
                 <input
-                  className="input md:col-span-4"
+                  className="input h-11 md:col-span-4"
                   placeholder={t("bookings.searchPlaceholder", "Search (customer, email, package, ID)…")}
                   value={bQ}
                   onChange={(e) => {
@@ -1247,15 +1252,16 @@ export default function DashboardInner() {
                   />
                   <span className="text-sm text-slate-700">{t("bookings.includeCancelled", "Include cancelled")}</span>
                 </label>
+                </div>
 
-                <div className="md:col-span-10 flex items-center justify-between gap-2 bg-slate-50 border rounded-lg p-2">
+                <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 p-3 md:flex-row md:items-center md:justify-between">
                   <div className="text-sm text-slate-700">
                     {t("labels.total", "Total")}: <b>{loadingBookings ? "…" : bookingsResp.total}</b> · {t("labels.page", "Page")}{" "}
                     <b>{bookingsResp.page}</b>/<b>{bookingsResp.pages}</b> · {t("labels.selected", "Selected")}:{" "}
                     <b>{selectedIds.size}</b>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <FancySelect
                       className="min-w-[112px]"
                       compact
@@ -1298,9 +1304,9 @@ export default function DashboardInner() {
 
             {/* Bookings list */}
             {loadingBookings ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="card">
+                  <div key={i} className="card rounded-[20px] border border-slate-200/90 shadow-sm">
                     <div className="p-4 space-y-2 animate-pulse">
                       <div className="h-4 bg-slate-200 rounded w-3/4" />
                       <div className="h-3 bg-slate-200 rounded w-1/2" />
@@ -1311,20 +1317,20 @@ export default function DashboardInner() {
                 ))}
               </div>
             ) : bookingsResp.items.length === 0 ? (
-              <div className="card">
-                <div className="card-body text-center py-10">
+              <div className="rounded-[20px] border border-slate-200/90 bg-white shadow-sm">
+                <div className="px-4 py-8 text-center">
                   <p className="text-slate-600">{t("empty.noBookings", "No bookings found for these filters.")}</p>
                 </div>
               </div>
             ) : (
               <>
                 {/* Desktop: table */}
-                <div className="hidden lg:block card overflow-hidden">
+                <div className="hidden overflow-hidden rounded-[20px] border border-slate-200/90 shadow-sm lg:block">
                   <div className="overflow-x-auto">
                     <table className="min-w-full text-sm">
                       <thead className="bg-slate-50 border-b">
                         <tr className="text-left text-slate-600">
-                          <th className="p-3 w-10">
+                          <th className="px-3 py-2.5 w-10">
                             <input
                               type="checkbox"
                               checked={
@@ -1337,12 +1343,12 @@ export default function DashboardInner() {
                               }}
                             />
                           </th>
-                          <th className="p-3">{t("table.package", "Package")}</th>
-                          <th className="p-3">{t("table.date", "Date")}</th>
-                          <th className="p-3">{t("table.customer", "Customer")}</th>
-                          <th className="p-3">{t("table.total", "Total")}</th>
-                          <th className="p-3">{t("table.status", "Status")}</th>
-                          <th className="p-3">{t("table.actions", "Actions")}</th>
+                          <th className="px-3 py-2.5">{t("table.package", "Package")}</th>
+                          <th className="px-3 py-2.5">{t("table.date", "Date")}</th>
+                          <th className="px-3 py-2.5">{t("table.customer", "Customer")}</th>
+                          <th className="px-3 py-2.5">{t("table.total", "Total")}</th>
+                          <th className="px-3 py-2.5">{t("table.status", "Status")}</th>
+                          <th className="px-3 py-2.5">{t("table.actions", "Actions")}</th>
                         </tr>
                       </thead>
 
@@ -1361,11 +1367,11 @@ export default function DashboardInner() {
 
                           return (
                             <tr key={dbId} className={classNames(status === "Cancelado" ? "bg-slate-50 opacity-80" : "")}>
-                              <td className="p-3 align-top">
+                              <td className="px-3 py-3 align-top">
                                 <input type="checkbox" checked={selectedIds.has(dbId)} onChange={() => toggleSelect(dbId)} />
                               </td>
 
-                              <td className="p-3 align-top">
+                              <td className="px-3 py-3 align-top">
                                 <div className="font-semibold">{pkgTitle}</div>
                                 <div className="text-xs text-slate-500">
                                   {city} · {t("labels.id", "ID")}: <span className="font-mono">{uiId || "—"}</span>{" "}
@@ -1380,31 +1386,31 @@ export default function DashboardInner() {
                                 </div>
                               </td>
 
-                              <td className="p-3 align-top text-slate-700">{fmtDT(when, locale)}</td>
+                              <td className="px-3 py-3 align-top text-slate-700">{fmtDT(when, locale)}</td>
 
-                              <td className="p-3 align-top">
+                              <td className="px-3 py-3 align-top">
                                 <div className="font-medium">{cust.name || "—"}</div>
                                 <div className="text-xs text-slate-500">{cust.email || "—"}</div>
                                 <div className="text-xs text-slate-500">{cust.phone || "—"}</div>
                               </td>
 
-                              <td className="p-3 align-top">
+                              <td className="px-3 py-3 align-top">
                                 <div className="font-semibold">{money(b.totalPrice ?? 0, totalCur, locale)}</div>
                                 <div className="text-xs text-slate-500">{currencyLabel(totalCur)}</div>
                               </td>
 
-                              <td className="p-3 align-top">
+                              <td className="px-3 py-3 align-top">
                                 <span className={statusBadgeCls(status)}>
                                   {BOOKING_STATUSES.find((s) => s.value === status)?.label || status}
                                 </span>
-                                <div className="mt-2 flex flex-wrap gap-1">
+                                <div className="mt-2 flex flex-wrap gap-1.5">
                                   {BOOKING_STATUSES.map((s) => {
                                     const disabled = s.value === status;
                                     return (
                                       <button
                                         key={s.value}
                                         className={classNames(
-                                          "px-2 py-1 rounded border text-xs",
+                                          "rounded-lg border px-2.5 py-1 text-[11px] font-medium leading-none",
                                           disabled
                                             ? "bg-slate-200 text-slate-600 cursor-not-allowed"
                                             : s.value === "Cancelado"
@@ -1421,20 +1427,20 @@ export default function DashboardInner() {
                                 </div>
                               </td>
 
-                              <td className="p-3 align-top">
-                                <div className="flex flex-wrap gap-2">
+                              <td className="px-3 py-3 align-top">
+                                <div className="flex flex-wrap gap-1.5">
                                   {wa && (
-                                    <a className="px-3 py-1 rounded border text-xs bg-white hover:bg-slate-50" href={wa} target="_blank" rel="noopener noreferrer">
+                                    <a className="rounded-lg border bg-white px-2.5 py-1 text-[11px] font-medium leading-none hover:bg-slate-50" href={wa} target="_blank" rel="noopener noreferrer">
                                       {t("labels.whatsapp", "WhatsApp")}
                                     </a>
                                   )}
                                   {cust.email && (
-                                    <a className="px-3 py-1 rounded border text-xs bg-white hover:bg-slate-50" href={`mailto:${cust.email}`}>
+                                    <a className="rounded-lg border bg-white px-2.5 py-1 text-[11px] font-medium leading-none hover:bg-slate-50" href={`mailto:${cust.email}`}>
                                       {t("labels.email", "Email")}
                                     </a>
                                   )}
                                   <button
-                                    className="px-3 py-1 rounded border text-xs bg-white hover:bg-slate-50"
+                                    className="rounded-lg border bg-white px-2.5 py-1 text-[11px] font-medium leading-none hover:bg-slate-50"
                                     onClick={() => copyText(cust.email || "", `email:${uiId || dbId}`)}
                                     disabled={!cust.email}
                                   >
@@ -1453,7 +1459,7 @@ export default function DashboardInner() {
                 </div>
 
                 {/* Mobile/cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 lg:hidden">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 lg:hidden">
                   {bookingsResp.items.map((b) => {
                     const dbId = bookingDbId(b);
                     const uiId = bookingIdForUI(b);
@@ -1468,8 +1474,8 @@ export default function DashboardInner() {
                     const wa = cust.phone ? buildWa(cust.phone, waText) : null;
 
                     return (
-                      <div key={dbId} className={classNames("card", status === "Cancelado" ? "bg-slate-50 opacity-80" : "")}>
-                        <div className="p-4 space-y-2">
+                      <div key={dbId} className={classNames("rounded-[20px] border border-slate-200/90 bg-white shadow-sm", status === "Cancelado" ? "bg-slate-50 opacity-80" : "")}>
+                        <div className="p-4 space-y-2.5">
                           <div className="flex items-start justify-between gap-2">
                             <div>
                               <div className="font-semibold line-clamp-1">{pkgTitle}</div>
@@ -1506,19 +1512,19 @@ export default function DashboardInner() {
                             <span className="text-xs text-slate-500">({currencyLabel(totalCur)})</span>
                           </div>
 
-                          <div className="flex flex-wrap gap-2 pt-1">
+                          <div className="flex flex-wrap gap-1.5 pt-1">
                             {wa && (
-                              <a className="px-3 py-1 rounded border text-sm bg-white hover:bg-slate-50" href={wa} target="_blank" rel="noopener noreferrer">
+                              <a className="rounded-lg border bg-white px-2.5 py-1.5 text-xs font-medium leading-none hover:bg-slate-50" href={wa} target="_blank" rel="noopener noreferrer">
                                 {t("labels.whatsapp", "WhatsApp")}
                               </a>
                             )}
                             {cust.email && (
-                              <a className="px-3 py-1 rounded border text-sm bg-white hover:bg-slate-50" href={`mailto:${cust.email}`}>
+                              <a className="rounded-lg border bg-white px-2.5 py-1.5 text-xs font-medium leading-none hover:bg-slate-50" href={`mailto:${cust.email}`}>
                                 {t("labels.email", "Email")}
                               </a>
                             )}
                             <button
-                              className="px-3 py-1 rounded border text-sm bg-white hover:bg-slate-50"
+                              className="rounded-lg border bg-white px-2.5 py-1.5 text-xs font-medium leading-none hover:bg-slate-50"
                               onClick={() => copyText(cust.email || "", `email:${uiId || dbId}`)}
                               disabled={!cust.email}
                             >
@@ -1528,14 +1534,14 @@ export default function DashboardInner() {
                             </button>
                           </div>
 
-                          <div className="flex flex-wrap gap-2 pt-2">
+                          <div className="flex flex-wrap gap-1.5 pt-2">
                             {BOOKING_STATUSES.map((s) => {
                               const disabled = s.value === status;
                               return (
                                 <button
                                   key={s.value}
                                   className={classNames(
-                                    "px-3 py-1 rounded border text-sm",
+                                    "rounded-lg border px-2.5 py-1.5 text-xs font-medium leading-none",
                                     disabled
                                       ? "bg-slate-200 text-slate-600 cursor-not-allowed"
                                       : s.value === "Cancelado"
@@ -1933,10 +1939,10 @@ export default function DashboardInner() {
 /* ===================== UI helpers ===================== */
 function KPI({ title, value, subtitle = "", accent = "default" }) {
   return (
-    <div className="card">
-      <div className="card-body py-4">
-        <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">{title}</p>
-        <p className={classNames("mt-2 text-lg font-semibold leading-none", accent === "danger" ? "text-rose-600" : "")}>{value}</p>
+    <div className="card h-full rounded-[20px] border border-slate-200/90 shadow-sm">
+      <div className="card-body py-3.5">
+        <p className="text-[10px] uppercase tracking-[0.17em] text-slate-500 sm:text-[11px]">{title}</p>
+        <p className={classNames("mt-2 text-xl font-semibold leading-none sm:text-[1.65rem]", accent === "danger" ? "text-rose-600" : "")}>{value}</p>
         {subtitle ? <p className="mt-2 text-[11px] leading-4 text-slate-500">{subtitle}</p> : null}
       </div>
     </div>
@@ -1952,10 +1958,10 @@ function AttentionCard({ title, value, subtitle = "", tone = "default" }) {
   };
 
   return (
-    <div className={classNames("rounded-3xl border p-5 shadow-sm", tones[tone] || tones.default)}>
-      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{title}</div>
-      <div className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">{value}</div>
-      {subtitle ? <div className="mt-2 text-sm leading-6 text-slate-600">{subtitle}</div> : null}
+    <div className={classNames("rounded-[22px] border p-4 shadow-sm", tones[tone] || tones.default)}>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{title}</div>
+      <div className="mt-3 text-[2rem] font-semibold tracking-tight leading-none text-slate-950">{value}</div>
+      {subtitle ? <div className="mt-2 text-sm leading-5 text-slate-600">{subtitle}</div> : null}
     </div>
   );
 }

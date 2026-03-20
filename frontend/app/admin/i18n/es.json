@@ -137,6 +137,7 @@
     "packagesToFixHint": "Borradores, sin media o con precio cero.",
     "performance": "Resumen del rendimiento",
     "attentionQueue": "Cola de atención",
+    "bookingsOpsHint": "Actualiza estados, contacta viajeros y exporta la cola actual rápido.",
     "quickActions": "Acciones rápidas",
     "quickActionsTitle": "Mueve la operación rápido",
     "quickNewPackage": "Crear paquete",

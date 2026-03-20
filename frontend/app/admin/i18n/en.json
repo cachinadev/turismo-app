@@ -137,6 +137,7 @@
     "packagesToFixHint": "Drafts, missing media, or zero-price packages.",
     "performance": "Performance snapshot",
     "attentionQueue": "Attention queue",
+    "bookingsOpsHint": "Update statuses, contact travelers, and export the current queue fast.",
     "quickActions": "Quick actions",
     "quickActionsTitle": "Move the operation forward",
     "quickNewPackage": "Create package",
