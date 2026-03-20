@@ -38,26 +38,47 @@ const DESTINATIONS = [
 ];
 
 const normalizeBase = (u = "") => u.replace(/\/+$/, "");
-const canonical = `${normalizeBase(SITE_URL || "")}/destinations`;
 
-/* ------------------ Metadata ------------------ */
-export const viewport = {
-  title: `${BRAND} | Galería de Destinos`,
-  description: `Un viaje visual por los destinos más espectaculares del Perú.`,
-  alternates: { canonical },
-  openGraph: {
-    title: `${BRAND} | Galería Visual`,
-    description: "Explora Perú a través de imágenes reales de nuestros paquetes",
-    url: canonical,
-    type: "website",
-    siteName: BRAND,
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: `${BRAND} | Galería Visual`,
-    description: "Descubre Perú con imágenes reales de experiencias",
-  },
-};
+export async function generateMetadata({ params }) {
+  const locale = params?.locale || "es";
+  const base = normalizeBase(SITE_URL || "");
+  const canonical = base ? `${base}/${locale}/destinations` : undefined;
+  const title =
+    locale === "en"
+      ? `Destinations in Peru | ${BRAND}`
+      : `Destinos en Perú | ${BRAND}`;
+  const description =
+    locale === "en"
+      ? "Explore Puno, Cusco, Arequipa and more Peru destinations with real package galleries and direct booking paths."
+      : "Explora Puno, Cusco, Arequipa y más destinos del Perú con galerías reales de paquetes y rutas directas de reserva.";
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical,
+      languages: {
+        es: "/es/destinations",
+        en: "/en/destinations",
+        fr: "/fr/destinations",
+        pt: "/pt/destinations",
+        ru: "/ru/destinations",
+      },
+    },
+    openGraph: {
+      title,
+      description,
+      url: canonical,
+      type: "website",
+      siteName: BRAND,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
+  };
+}
 
 /* ------------------ Data ------------------ */
 async function fetchCityPreview(city) {
@@ -107,6 +128,18 @@ export default async function DestinationsPage({ params }) {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-white via-gray-50/50 to-white">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "CollectionPage",
+            name: locale === "en" ? "Destinations in Peru" : "Destinos en Perú",
+            url: `${normalizeBase(SITE_URL || "")}/${locale}/destinations`,
+            about: DESTINATIONS.map((d) => d.city),
+          }),
+        }}
+      />
       {/* Hero - Minimal Geometric */}
       <div className="relative overflow-hidden">
         {/* Geometric Background */}

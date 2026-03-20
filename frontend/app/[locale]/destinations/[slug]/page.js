@@ -58,16 +58,38 @@ export async function generateMetadata({ params }) {
   if (!dest) return { title: "Destination not found" };
 
   const canonical = `${normalizeBase(SITE_URL || "")}/${locale}/destinations/${dest.slug}`;
+  const title =
+    locale === "en"
+      ? `${dest.city} tours and galleries | ${BRAND}`
+      : `${dest.city}: tours y galerías | ${BRAND}`;
+  const description =
+    locale === "en"
+      ? `Discover tours, package galleries and booking options in ${dest.city}, Peru.`
+      : `Descubre tours, galerías de paquetes y opciones de reserva en ${dest.city}, Perú.`;
   return {
-    title: `${dest.city} | ${BRAND}`,
-    description: `Galería visual de experiencias en ${dest.city}.`,
-    alternates: { canonical },
+    title,
+    description,
+    alternates: {
+      canonical,
+      languages: {
+        es: `/es/destinations/${dest.slug}`,
+        en: `/en/destinations/${dest.slug}`,
+        fr: `/fr/destinations/${dest.slug}`,
+        pt: `/pt/destinations/${dest.slug}`,
+        ru: `/ru/destinations/${dest.slug}`,
+      },
+    },
     openGraph: {
-      title: `${dest.city} | ${BRAND}`,
-      description: `Fotos reales de paquetes en ${dest.city}.`,
+      title,
+      description,
       url: canonical,
       type: "website",
       siteName: BRAND,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
     },
   };
 }
@@ -80,9 +102,28 @@ export default async function DestinationDetailPage({ params }) {
 
   const packages = await fetchCityPackages(dest.city);
   const images = shuffle(pickImages(packages)).slice(0, 24);
+  const canonical = `${normalizeBase(SITE_URL || "")}/${locale}/destinations/${dest.slug}`;
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: locale === "en" ? "Home" : "Inicio", item: `${normalizeBase(SITE_URL || "")}/${locale}` },
+      { "@type": "ListItem", position: 2, name: locale === "en" ? "Destinations" : "Destinos", item: `${normalizeBase(SITE_URL || "")}/${locale}/destinations` },
+      { "@type": "ListItem", position: 3, name: dest.city, item: canonical },
+    ],
+  };
+  const collectionLd = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: dest.city,
+    url: canonical,
+    about: packages.slice(0, 12).map((p) => p.title).filter(Boolean),
+  };
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-white via-gray-50/50 to-white pt-24">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionLd) }} />
       <div className="container-default pt-16 pb-6">
         <div className="text-sm text-slate-600 mb-4">
           <Link href={`/${locale}/destinations`} className="hover:underline">

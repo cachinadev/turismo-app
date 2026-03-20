@@ -104,6 +104,67 @@ const DynamicComponents = {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+export async function generateMetadata({ params: { locale } }) {
+  const lang = CONFIG.locale.supported.includes(locale) ? locale : CONFIG.locale.default;
+  const base = String(process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/+$/, "");
+  const canonical = base ? `${base}/${lang}` : undefined;
+
+  const localized = {
+    es: {
+      title: `Tours en Puno, Cusco y Perú | ${CONFIG.brand.name}`,
+      description: `Reserva tours en Puno, Uros, Taquile, Cusco y más destinos de Perú con ${CONFIG.brand.name}. Operadores locales, salidas confirmadas y soporte 24/7.`,
+    },
+    en: {
+      title: `Peru tours in Puno, Cusco and beyond | ${CONFIG.brand.name}`,
+      description: `Book Peru tours in Puno, Uros, Taquile, Cusco and more with ${CONFIG.brand.name}. Local operators, confirmed departures and 24/7 support.`,
+    },
+    fr: {
+      title: `Circuits au Pérou à Puno, Cusco et plus | ${CONFIG.brand.name}`,
+      description: `Réservez des circuits au Pérou à Puno, Uros, Taquile, Cusco et plus avec ${CONFIG.brand.name}. Opérateurs locaux et assistance 24h/24.`,
+    },
+    pt: {
+      title: `Passeios no Peru em Puno, Cusco e mais | ${CONFIG.brand.name}`,
+      description: `Reserve passeios no Peru em Puno, Uros, Taquile, Cusco e mais com ${CONFIG.brand.name}. Operadores locais e suporte 24/7.`,
+    },
+    ru: {
+      title: `Туры по Перу: Пуно, Куско и другие направления | ${CONFIG.brand.name}`,
+      description: `Бронируйте туры по Перу в Пуно, на Урос, Такиле, в Куско и другие направления с ${CONFIG.brand.name}.`,
+    },
+  }[lang] || {
+    title: `Peru tours | ${CONFIG.brand.name}`,
+    description: `Book authentic Peru tours with ${CONFIG.brand.name}.`,
+  };
+
+  return {
+    title: localized.title,
+    description: localized.description,
+    alternates: {
+      canonical,
+      languages: {
+        es: "/es",
+        en: "/en",
+        fr: "/fr",
+        pt: "/pt",
+        ru: "/ru",
+      },
+    },
+    openGraph: {
+      title: localized.title,
+      description: localized.description,
+      type: "website",
+      url: canonical,
+      siteName: CONFIG.brand.name,
+      images: [{ url: CONFIG.video.poster, alt: `${CONFIG.brand.name} Peru tours` }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: localized.title,
+      description: localized.description,
+      images: [CONFIG.video.poster],
+    },
+  };
+}
+
 /* =============================================================================
  * UTILITY CLASSES
  * ============================================================================= */
@@ -380,9 +441,36 @@ export default async function HomePage({ params: { locale } }) {
   const allPackages = await PackageService.fetchAll();
   const activePackages = PackageService.filterActive(allPackages);
   const promotionalPackages = PackageService.filterPromotional(activePackages);
+  const base = String(process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/+$/, "");
+  const canonical = base ? `${base}/${lang}` : "";
+  const websiteLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: CONFIG.brand.name,
+    url: canonical || base || undefined,
+    inLanguage: lang,
+    potentialAction: canonical
+      ? {
+          "@type": "SearchAction",
+          target: `${base}/${lang}/packages?q={search_term_string}`,
+          "query-input": "required name=search_term_string",
+        }
+      : undefined,
+  };
+  const orgLd = {
+    "@context": "https://schema.org",
+    "@type": "TravelAgency",
+    name: CONFIG.brand.name,
+    url: canonical || base || undefined,
+    areaServed: ["Puno", "Cusco", "Arequipa", "Peru"],
+    email: process.env.NEXT_PUBLIC_CONTACT_EMAIL || undefined,
+    telephone: process.env.NEXT_PUBLIC_CONTACT_PHONE_OFFICIAL || undefined,
+  };
 
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(orgLd) }} />
       <HeroSection lang={lang} t={t} hasPromotions={promotionalPackages.length > 0} />
 
       {/* Discover Peru Section */}

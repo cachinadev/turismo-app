@@ -192,10 +192,13 @@ export async function generateMetadata({ params }) {
   const pkg = await fetchPackage(params.slug);
   if (!pkg) return { title: "Package not found" };
 
-  const title = `${pkg.title} | ${BRAND_NAME}`;
+  const city = safeText(pkg.city, 60);
+  const category = safeText(pkg.category, 60);
+  const titleBits = [pkg.title, city, category].filter(Boolean);
+  const title = `${titleBits.join(" · ")} | ${BRAND_NAME}`;
   const description =
     (pkg.description || "").replace(/\s+/g, " ").slice(0, 155) ||
-    "Guided experiences and day tours in Peru.";
+    `Book ${pkg.title} in ${city || "Peru"} with local operators, secure checkout and 24/7 support.`;
   const image = pkg.media?.[0]?.url;
   const base = normalizeBase(SITE_URL);
   const url = base ? `${base}/${locale}/packages/${params.slug}` : undefined;
@@ -220,6 +223,12 @@ export async function generateMetadata({ params }) {
       type: "article",
       ...(url ? { url } : {}),
       siteName: BRAND_NAME,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      ...(image ? { images: [image] } : {}),
     },
   };
 }
@@ -722,6 +731,31 @@ export default async function PackageDetail({ params }) {
       url: canonical,
     },
   };
+  const breadcrumbLD = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: t("NavBar.home", "Home"), item: `${base}/${locale}` },
+      { "@type": "ListItem", position: 2, name: t("NavBar.packages", "Packages"), item: `${base}/${locale}/packages` },
+      { "@type": "ListItem", position: 3, name: pkg.title, item: canonical },
+    ],
+  };
+  const tripLD = {
+    "@context": "https://schema.org",
+    "@type": "TouristTrip",
+    name: pkg.title,
+    description: pkg.description || "",
+    ...(pkg.city ? { touristType: pkg.city } : {}),
+    ...(canonical ? { url: canonical } : {}),
+    ...(pkg.media?.length ? { image: pkg.media.filter((m) => m.type === "image").map((m) => m.url) } : {}),
+    offers: {
+      "@type": "Offer",
+      priceCurrency: currency,
+      price: String(priceNow || 0),
+      availability: "https://schema.org/InStock",
+      url: canonical,
+    },
+  };
 
   // Nice “quick facts” from new fields
   const difficulty = pkg.difficulty || "";
@@ -750,6 +784,8 @@ export default async function PackageDetail({ params }) {
   return (
     <main className="min-h-screen bg-gradient-to-b from-white via-[#F8FAFC] to-white">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productLD) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLD) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(tripLD) }} />
 
       {/* Breadcrumbs */}
       <div className="bg-white border-b border-slate-100">

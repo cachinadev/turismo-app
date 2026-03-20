@@ -331,6 +331,7 @@ async function sendBookingEmails({ booking, pkg }) {
   const custPhone = booking?.customer?.phone || "";
   const custCountry = booking?.customer?.country || "";
   const notes = booking?.notes || "";
+  const safeCustomerReplyTo = custEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(custEmail) ? custEmail : undefined;
 
   const unitStr = fmtMoney(booking?.unitPrice);
   const totalStr = fmtMoney(booking?.totalPrice);
@@ -473,8 +474,16 @@ ${waUrl ? `WhatsApp: ${waUrl}` : ""}`.trim();
     html,
     text,
     attachments,
-    ...(custEmail ? { replyTo: `${custName} <${custEmail}>` } : {}),
+    ...(safeCustomerReplyTo ? { replyTo: safeCustomerReplyTo } : replyTo ? { replyTo } : {}),
   };
+
+  console.log("[mailer] booking email targets", {
+    reservationId,
+    customerTo: custEmail || null,
+    adminTo: toAdmin || null,
+    bcc,
+    adminReplyTo: adminMsg.replyTo || null,
+  });
 
   const results = await Promise.allSettled([
     custEmail ? transporter.sendMail(userMsg) : Promise.resolve(),
