@@ -30,9 +30,27 @@ function toAbsolute(base, u) {
   return `${base}${p}`;
 }
 
+function normalizeMediaVariantAbsolute(base, variant) {
+  if (!variant || typeof variant !== 'object') return variant;
+  return {
+    ...variant,
+    ...(variant.url ? { url: toAbsolute(base, variant.url) } : {}),
+  };
+}
+
 function normalizeMediaAbsolute(base, media = []) {
   if (!Array.isArray(media)) return [];
-  return media.map((m) => ({ ...m, url: toAbsolute(base, m.url) }));
+  return media.map((m) => ({
+    ...m,
+    url: toAbsolute(base, m.url),
+    ...(m.variants && typeof m.variants === 'object'
+      ? {
+          variants: Object.fromEntries(
+            Object.entries(m.variants).map(([name, value]) => [name, normalizeMediaVariantAbsolute(base, value)])
+          ),
+        }
+      : {}),
+  }));
 }
 
 function isValidObjectId(id) {
@@ -153,6 +171,23 @@ function isValidBrochureUrl(v) {
 }
 
 // Normalize media payload (server-side sanity + DEDUPE)
+function normalizeMediaVariantPayload(v) {
+  if (!v || typeof v !== 'object') return undefined;
+  const url = String(v.url || '').trim();
+  const relativePath = String(v.relativePath || '').trim();
+  if (!url && !relativePath) return undefined;
+  const width = Number.isFinite(Number(v.width)) ? Number(v.width) : undefined;
+  const height = Number.isFinite(Number(v.height)) ? Number(v.height) : undefined;
+  const format = nonEmpty(v.format) ? String(v.format).trim().slice(0, 20) : undefined;
+  return {
+    ...(url ? { url } : {}),
+    ...(relativePath ? { relativePath } : {}),
+    ...(Number.isFinite(width) ? { width } : {}),
+    ...(Number.isFinite(height) ? { height } : {}),
+    ...(format ? { format } : {}),
+  };
+}
+
 function normalizeMediaInPayload(media) {
   if (!Array.isArray(media)) return [];
   const out = [];
@@ -168,9 +203,24 @@ function normalizeMediaInPayload(media) {
     if (seen.has(key)) continue;
     seen.add(key);
 
+    const relativePath = String(m.relativePath || '').trim();
+    const width = Number.isFinite(Number(m.width)) ? Number(m.width) : undefined;
+    const height = Number.isFinite(Number(m.height)) ? Number(m.height) : undefined;
+    const variants = type === 'image' && m.variants && typeof m.variants === 'object'
+      ? Object.fromEntries(
+          Object.entries(m.variants)
+            .map(([name, value]) => [name, normalizeMediaVariantPayload(value)])
+            .filter(([, value]) => value)
+        )
+      : undefined;
+
     out.push({
       url,
       type,
+      ...(relativePath ? { relativePath } : {}),
+      ...(Number.isFinite(width) ? { width } : {}),
+      ...(Number.isFinite(height) ? { height } : {}),
+      ...(variants && Object.keys(variants).length ? { variants } : {}),
       ...(m.caption ? { caption: String(m.caption).slice(0, 500) } : {}),
     });
   }

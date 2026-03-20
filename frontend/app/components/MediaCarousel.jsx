@@ -2,6 +2,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { mediaVariantUrl } from "@/app/lib/media";
 
 const isVideoUrl = (u = "") => /\.(mp4|webm|ogg)$/i.test(u);
 
@@ -26,7 +27,7 @@ export default function MediaCarousel({ media = [], heightClass = "h-[420px]", a
     return arr
       .filter((m) => m && m.url)
       .map((m) => {
-        const url = safeUrl(m.url);
+        const url = safeUrl(mediaVariantUrl(m, ['large', 'medium', 'thumb']) || m.url);
         const type = m.type || (isVideoUrl(url) ? "video" : "image");
         return { ...m, url, type };
       })

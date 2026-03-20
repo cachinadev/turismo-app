@@ -1,6 +1,6 @@
 // app/components/landing/ExperienceStrip.jsx
 import Link from "next/link";
-import { mediaUrl } from "@/app/lib/media";
+import { mediaVariantUrl } from "@/app/lib/media";
 
 export default function ExperienceStrip({ items = [] }) {
   return (
@@ -16,7 +16,7 @@ export default function ExperienceStrip({ items = [] }) {
           {items.map((p) => (
             <Link key={p._id} href={`/packages/${p.slug}`} className="card overflow-hidden">
               <img
-                src={mediaUrl(p.media?.[0]?.url) || "https://picsum.photos/400/300"}
+                src={mediaVariantUrl(p.media?.[0], ['medium', 'thumb']) || "https://picsum.photos/400/300"}
                 alt={p.title}
                 className="h-36 w-full object-cover"
               />

@@ -1,7 +1,7 @@
 // frontend/app/[locale]/packages/[slug]/page.js
 import BookingForm from "@/app/components/BookingForm";
 import { notFound } from "next/navigation";
-import { mediaUrl } from "@/app/lib/media";
+import { mediaUrl, mediaVariantUrl, normalizeMediaRecord } from "@/app/lib/media";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -126,7 +126,7 @@ async function fetchPackage(slug) {
     const media = Array.isArray(json?.media)
       ? json.media
           .filter((m) => m && m.url && (m.type === "image" || m.type === "video"))
-          .map((m) => ({ ...m, url: mediaUrl(m.url) }))
+          .map((m) => normalizeMediaRecord(m, 'large'))
       : [];
 
     // Normalize newer fields coming from the updated backend/schema
@@ -178,7 +178,7 @@ async function fetchRelated(pkg) {
       .map((p) => ({
         ...p,
         media: Array.isArray(p.media)
-          ? p.media.map((m) => ({ ...m, url: mediaUrl(m.url) }))
+          ? p.media.map((m) => normalizeMediaRecord(m, 'medium'))
           : [],
       }));
   } catch {
@@ -199,7 +199,7 @@ export async function generateMetadata({ params }) {
   const description =
     (pkg.description || "").replace(/\s+/g, " ").slice(0, 155) ||
     `Book ${pkg.title} in ${city || "Peru"} with local operators, secure checkout and 24/7 support.`;
-  const image = pkg.media?.[0]?.url;
+  const image = mediaVariantUrl(pkg.media?.[0], ['large', 'medium']) || pkg.media?.[0]?.url;
   const base = normalizeBase(SITE_URL);
   const url = base ? `${base}/${locale}/packages/${params.slug}` : undefined;
 

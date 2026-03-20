@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { API_BASE, SITE_URL } from "@/app/lib/config";
+import { mediaVariantUrl } from "@/app/lib/media";
 
 const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || "Vicuña Adventures";
 
@@ -35,7 +36,7 @@ function pickImages(packages) {
     const media = Array.isArray(p?.media) ? p.media : [];
     for (const m of media) {
       if (m?.type === "image" && m?.url) {
-        list.push({ url: m.url, title: p.title || "", slug: p.slug || "" });
+        list.push({ url: mediaVariantUrl(m, ['medium', 'thumb']) || m.url, title: p.title || '', slug: p.slug || '' });
       }
     }
   }

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Search, X, Loader2 } from "lucide-react";
 import { API_BASE } from "@/app/lib/config";
-import { mediaUrl } from "@/app/lib/media";
+import { mediaUrl, mediaVariantUrl, normalizeMediaRecord } from "@/app/lib/media";
 
 const SUPPORTED = ["es", "en", "fr", "pt", "ru"];
 const DEFAULT_LOCALE = "en";
@@ -66,8 +66,9 @@ function pkgCity(pkg) {
 
 function pkgImg(pkg) {
   const m0 = Array.isArray(pkg?.media) ? pkg.media[0] : null;
-  const url = m0?.url || m0?.src || m0;
-  return url ? mediaUrl(url) : "";
+  if (!m0) return "";
+  if (typeof m0 === 'object') return mediaVariantUrl(m0, ['medium', 'thumb']) || mediaUrl(m0.url || m0.src || '');
+  return mediaUrl(m0);
 }
 
 function normalizePackageList(data) {
@@ -250,7 +251,7 @@ export default function HeroSearch({ locale }) {
         list = list.slice(0, 8).map((p) => ({
           ...p,
           media: Array.isArray(p?.media)
-            ? p.media.map((m) => ({ ...m, url: mediaUrl(m?.url || m?.src || m) }))
+            ? p.media.map((m) => normalizeMediaRecord(typeof m === 'object' ? m : { url: m?.url || m?.src || m }, 'medium'))
             : p?.media,
         }));
 

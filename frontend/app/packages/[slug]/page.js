@@ -3,7 +3,7 @@
 
 import BookingForm from "@/app/components/BookingForm";
 import { notFound } from "next/navigation";
-import { mediaUrl } from "@/app/lib/media";
+import { mediaUrl, mediaVariantUrl, normalizeMediaRecord } from "@/app/lib/media";
 import Link from "next/link";
 import { API_BASE, SITE_URL, CONTACT_PHONE, WHATSAPP_NUMBER } from "@/app/lib/config";
 import MediaCarousel from "@/app/components/MediaCarousel";
@@ -79,7 +79,7 @@ async function fetchPackage(slug) {
     const media = Array.isArray(json?.media)
       ? json.media
           .filter((m) => m && m.url && (m.type === "image" || m.type === "video"))
-          .map((m) => ({ ...m, url: mediaUrl(m.url) }))
+          .map((m) => normalizeMediaRecord(m, 'large'))
       : [];
 
     return { ...json, media };
@@ -106,7 +106,7 @@ async function fetchRelated(pkg) {
       .map((p) => ({
         ...p,
         media: Array.isArray(p.media)
-          ? p.media.map((m) => ({ ...m, url: mediaUrl(m.url) }))
+          ? p.media.map((m) => normalizeMediaRecord(m, 'medium'))
           : [],
       }));
   } catch {

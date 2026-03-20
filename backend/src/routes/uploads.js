@@ -3,6 +3,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const sharp = require('sharp');
 const { v4: uuid } = require('uuid');
 const auth = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
@@ -12,7 +13,9 @@ const router = express.Router();
 
 // ---- Ensure uploads directory (under /public for static serving)
 const uploadsDir = path.join(__dirname, '../../public/uploads');
+const variantsDir = path.join(uploadsDir, 'variants');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+if (!fs.existsSync(variantsDir)) fs.mkdirSync(variantsDir, { recursive: true });
 
 // ---- Multer storage
 const storage = multer.diskStorage({
@@ -33,6 +36,49 @@ const ALLOWED_MIME = new Set([
   'video/quicktime',
   'video/x-msvideo',
 ]);
+
+const IMAGE_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const IMAGE_VARIANTS = [
+  { key: 'thumb', width: 480 },
+  { key: 'medium', width: 960 },
+  { key: 'large', width: 1600 },
+];
+
+function isImageMime(mime) {
+  return IMAGE_MIME.has(String(mime || '').toLowerCase());
+}
+
+async function createImageVariants(filePath, filename, base) {
+  const source = sharp(filePath, { failOnError: false }).rotate();
+  const metadata = await source.metadata();
+  const width = Number(metadata?.width) || undefined;
+  const height = Number(metadata?.height) || undefined;
+  const variants = {};
+  const stem = path.parse(filename).name;
+
+  for (const variant of IMAGE_VARIANTS) {
+    const outputName = `${stem}-${variant.key}.webp`;
+    const outputPath = path.join(variantsDir, outputName);
+
+    await source
+      .clone()
+      .resize({ width: variant.width, withoutEnlargement: true })
+      .webp({ quality: variant.key === 'thumb' ? 72 : variant.key === 'medium' ? 78 : 84 })
+      .toFile(outputPath);
+
+    const variantMeta = await sharp(outputPath).metadata().catch(() => ({}));
+    const relativePath = `/uploads/variants/${outputName}`;
+    variants[variant.key] = {
+      url: `${base}${relativePath}`,
+      relativePath,
+      width: Number(variantMeta?.width) || undefined,
+      height: Number(variantMeta?.height) || undefined,
+      format: 'webp',
+    };
+  }
+
+  return { width, height, variants };
+}
 
 function fileFilter(_req, file, cb) {
   const ext = (path.extname(file.originalname) || '').toLowerCase();
@@ -87,7 +133,8 @@ router.post(
         const info = await fileTypeFromFile(f.path).catch(() => null);
 
         // Stronger validation with magic bytes + fallback
-        const valid = (info && ALLOWED_MIME.has(info.mime)) || ALLOWED_MIME.has(f.mimetype);
+        const resolvedMime = String(info?.mime || f.mimetype || '').toLowerCase();
+        const valid = ALLOWED_MIME.has(resolvedMime);
         if (!valid) {
           try {
             fs.unlinkSync(f.path);
@@ -103,8 +150,7 @@ router.post(
         const isVideo = ['.mp4', '.mov', '.avi'].includes(ext);
         const filename = f.filename; // multer already saved unique uuid+ext
         const relativePath = `/uploads/${filename}`;
-
-        files.push({
+        const media = {
           id: filename, // unique identifier
           url: `${base}${relativePath}`,
           relativePath,
@@ -113,8 +159,17 @@ router.post(
           fieldname: f.fieldname,
           type: isVideo ? 'video' : 'image',
           size: f.size,
-          mimetype: f.mimetype,
-        });
+          mimetype: resolvedMime,
+        };
+
+        if (isImageMime(resolvedMime)) {
+          const derived = await createImageVariants(f.path, filename, base);
+          if (derived.width) media.width = derived.width;
+          if (derived.height) media.height = derived.height;
+          if (Object.keys(derived.variants || {}).length) media.variants = derived.variants;
+        }
+
+        files.push(media);
       }
 
       await logAdminAction(req, {

@@ -59,3 +59,38 @@ export function mediaUrl(u = "") {
   // Generic relative fallback
   return `${API_BASE}/${u.replace(/^\/+/, "")}`;
 }
+
+
+export function mediaVariantUrl(media, preferred = 'medium') {
+  if (!media) return '';
+  if (typeof media === 'string') return mediaUrl(media);
+
+  const order = Array.isArray(preferred) ? preferred : [preferred, 'medium', 'large', 'thumb'];
+  for (const key of order) {
+    const candidate = media?.variants?.[key]?.url || media?.variants?.[key]?.relativePath;
+    if (candidate) return mediaUrl(candidate);
+  }
+
+  return mediaUrl(media.url || media.relativePath || '');
+}
+
+export function normalizeMediaRecord(media, preferred = 'medium') {
+  if (!media || typeof media !== 'object') return media;
+  const variants = media.variants && typeof media.variants === 'object'
+    ? Object.fromEntries(
+        Object.entries(media.variants).map(([key, value]) => [
+          key,
+          value && typeof value === 'object'
+            ? { ...value, url: mediaUrl(value.url || value.relativePath || '') }
+            : value,
+        ])
+      )
+    : undefined;
+
+  return {
+    ...media,
+    originalUrl: mediaUrl(media.url || media.relativePath || ''),
+    url: mediaVariantUrl(media, preferred),
+    ...(variants ? { variants } : {}),
+  };
+}

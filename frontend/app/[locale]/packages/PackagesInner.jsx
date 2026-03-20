@@ -7,7 +7,7 @@ import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams, useParams } from 'next/navigation';
 import { API_BASE } from '@/app/lib/config';
-import { mediaUrl } from '@/app/lib/media';
+import { mediaUrl, mediaVariantUrl, normalizeMediaRecord } from '@/app/lib/media';
 import { Search, MapPin, Star, Clock, Filter, ChevronDown, ChevronUp, Navigation, X, RefreshCcw } from 'lucide-react';
 
 /* ---------------- i18n ---------------- */
@@ -61,7 +61,8 @@ const imgListFrom = (p) => {
   const imgs = Array.isArray(p?.media)
     ? p.media
         .filter((m) => m && m.url && (m.type === 'image' || !m.type))
-        .map((m) => mediaUrl(m.url))
+        .map((m) => mediaVariantUrl(m, ['medium', 'thumb']))
+        .filter(Boolean)
     : [];
   return imgs.length ? imgs.slice(0, 8) : ['https://picsum.photos/600/400'];
 };
@@ -260,7 +261,7 @@ export default function PackagesInner({ initial }) {
       const listRaw = Array.isArray(json) ? json : json.items || [];
       const list = listRaw.map((p) => ({
         ...p,
-        media: Array.isArray(p.media) ? p.media.map((m) => ({ ...m, url: mediaUrl(m.url) })) : [],
+        media: Array.isArray(p.media) ? p.media.map((m) => normalizeMediaRecord(m, 'medium')) : [],
       }));
 
       setItems(list);

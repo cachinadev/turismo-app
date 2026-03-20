@@ -8,6 +8,7 @@ import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 import Link from 'next/link';
 import { Clock, MapPin } from 'lucide-react';
+import { mediaVariantUrl } from '@/app/lib/media';
 
 // Función para formatear dinero (copiada de tu código)
 const money = (v, curr = 'PEN', locale = 'en-US') =>
@@ -20,7 +21,7 @@ const money = (v, curr = 'PEN', locale = 'en-US') =>
 // Función para obtener imágenes (copiada de tu código)
 const imgListFrom = (p) => {
   const imgs = Array.isArray(p?.media)
-    ? p.media.filter(m => m && m.url && (m.type === 'image' || !m.type)).map(m => m.url)
+    ? p.media.filter(m => m && m.url && (m.type === 'image' || !m.type)).map(m => mediaVariantUrl(m, ['medium', 'thumb']) || m.url).filter(Boolean)
     : [];
   return imgs.length ? imgs.slice(0, 8) : ['https://picsum.photos/600/400'];
 };

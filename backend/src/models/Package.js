@@ -52,6 +52,23 @@ const parseMaybeStringList = (v) =>
 
 /* ---- media normalizer + de-dupe (order-preserving) ---- */
 const MAX_MEDIA = 60;
+function normalizeMediaVariant(v) {
+  if (!v || typeof v !== 'object') return undefined;
+  const url = String(v.url || '').trim();
+  const relativePath = String(v.relativePath || '').trim();
+  if (!url && !relativePath) return undefined;
+  const width = Number.isFinite(Number(v.width)) ? Number(v.width) : undefined;
+  const height = Number.isFinite(Number(v.height)) ? Number(v.height) : undefined;
+  const format = nonEmpty(v.format) ? String(v.format).trim().slice(0, 20) : undefined;
+  return {
+    ...(url ? { url } : {}),
+    ...(relativePath ? { relativePath } : {}),
+    ...(Number.isFinite(width) ? { width } : {}),
+    ...(Number.isFinite(height) ? { height } : {}),
+    ...(format ? { format } : {}),
+  };
+}
+
 function normalizeMediaArray(input) {
   const arr = Array.isArray(input) ? input : input ? [input] : [];
   const out = [];
@@ -70,9 +87,24 @@ function normalizeMediaArray(input) {
     if (seen.has(key)) continue;
     seen.add(key);
 
+    const relativePath = String(m.relativePath || '').trim();
+    const width = Number.isFinite(Number(m.width)) ? Number(m.width) : undefined;
+    const height = Number.isFinite(Number(m.height)) ? Number(m.height) : undefined;
+    const variants = type === 'image' && m.variants && typeof m.variants === 'object'
+      ? Object.fromEntries(
+          Object.entries(m.variants)
+            .map(([name, value]) => [name, normalizeMediaVariant(value)])
+            .filter(([, value]) => value)
+        )
+      : undefined;
+
     out.push({
       type,
       url,
+      ...(relativePath ? { relativePath } : {}),
+      ...(Number.isFinite(width) ? { width } : {}),
+      ...(Number.isFinite(height) ? { height } : {}),
+      ...(variants && Object.keys(variants).length ? { variants } : {}),
       ...(m.caption ? { caption: String(m.caption).slice(0, 500) } : {}),
     });
 
@@ -168,6 +200,17 @@ function normalizeCsvList(v) {
 }
 
 /* ===================== Subschemas ===================== */
+const mediaVariantSchema = new Schema(
+  {
+    url: { type: String, trim: true, maxlength: 2000 },
+    relativePath: { type: String, trim: true, maxlength: 2000 },
+    width: { type: Number, min: 1 },
+    height: { type: Number, min: 1 },
+    format: { type: String, trim: true, maxlength: 20 },
+  },
+  { _id: false }
+);
+
 const mediaSchema = new Schema(
   {
     type: { type: String, enum: ["image", "video"], required: true },
@@ -179,6 +222,14 @@ const mediaSchema = new Schema(
         validator: (v) => /^https?:\/\//i.test(v) || String(v).startsWith("/"),
         message: 'media.url must be absolute (http/https) or relative starting with "/".',
       },
+    },
+    relativePath: { type: String, trim: true, maxlength: 2000 },
+    width: { type: Number, min: 1 },
+    height: { type: Number, min: 1 },
+    variants: {
+      thumb: mediaVariantSchema,
+      medium: mediaVariantSchema,
+      large: mediaVariantSchema,
     },
     caption: str(0, 500),
   },

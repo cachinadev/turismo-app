@@ -1,7 +1,7 @@
 // frontend/app/admin/packages/_uploader.jsx
 'use client';
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
-import { mediaUrl } from '@/app/lib/media';
+import { mediaUrl, mediaVariantUrl } from '@/app/lib/media';
 import { API_BASE } from '@/app/lib/config';
 
 const DEFAULT_MAX_FILES = 10;
@@ -117,7 +117,8 @@ export default function Uploader({
       // Replace temps for this batch with server results
       const uploaded = (data.files || []).map((it) => ({
         ...it,
-        url: mediaUrl(it.url),
+        originalUrl: mediaUrl(it.url),
+        url: mediaVariantUrl(it, 'thumb') || mediaUrl(it.url),
         __temp: false,
       }));
 

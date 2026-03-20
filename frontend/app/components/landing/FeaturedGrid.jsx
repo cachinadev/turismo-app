@@ -1,6 +1,6 @@
 // app/components/landing/FeaturedGrid.jsx
 import Link from "next/link";
-import { mediaUrl } from "@/app/lib/media";
+import { mediaVariantUrl } from "@/app/lib/media";
 
 export default function FeaturedGrid({ items = [] }) {
   return (
@@ -25,7 +25,7 @@ export default function FeaturedGrid({ items = [] }) {
             <Link key={p._id} href={`/packages/${p.slug}`} className="group card overflow-hidden">
               <div className="relative">
                 <img
-                  src={mediaUrl(p.media?.[0]?.url) || "https://picsum.photos/600/400"}
+                  src={mediaVariantUrl(p.media?.[0], ['medium', 'thumb']) || "https://picsum.photos/600/400"}
                   alt={p.title}
                   className="h-56 w-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />

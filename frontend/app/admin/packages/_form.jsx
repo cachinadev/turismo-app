@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import Uploader from './_uploader';
-import { mediaUrl } from '@/app/lib/media';
+import { mediaUrl, mediaVariantUrl } from '@/app/lib/media';
 import { API_BASE } from '@/app/lib/config';
 
 const EMPTY = {
@@ -348,7 +348,15 @@ export default function PackageForm({ pkg, onSaved }) {
       ? dedupeByUrlType(
           form.media
             .filter((m) => m && m.url && (m.type === 'image' || m.type === 'video'))
-            .map(({ url, type, caption }) => ({ url, type, ...(caption ? { caption } : {}) }))
+            .map(({ url, type, caption, relativePath, width, height, variants }) => ({
+              url,
+              type,
+              ...(caption ? { caption } : {}),
+              ...(relativePath ? { relativePath } : {}),
+              ...(Number.isFinite(Number(width)) ? { width: Number(width) } : {}),
+              ...(Number.isFinite(Number(height)) ? { height: Number(height) } : {}),
+              ...(variants && typeof variants === 'object' ? { variants } : {}),
+            }))
         )
       : [];
 
@@ -590,7 +598,7 @@ export default function PackageForm({ pkg, onSaved }) {
     });
 
   // Preview cover
-  const heroImg = mediaUrl(form.media?.[0]?.url) || 'https://picsum.photos/800/450';
+  const heroImg = mediaVariantUrl(form.media?.[0], 'medium') || 'https://picsum.photos/800/450';
 
   // Quick helper: if user has coords but no mapsUrl, build one
   const suggestedMapsUrl = useMemo(() => makeMapsQueryUrlFromCoords(form.lat, form.lng), [form.lat, form.lng]);
@@ -1041,7 +1049,7 @@ export default function PackageForm({ pkg, onSaved }) {
             {Boolean(form.media?.length) && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
                 {form.media.map((m, i) => {
-                  const src = mediaUrl(m.url);
+                  const src = mediaVariantUrl(m, 'thumb') || mediaUrl(m.url);
                   return (
                     <div key={`${src}-${i}`} className="relative rounded-lg overflow-hidden border group">
                       {m.type === 'video' ? (
