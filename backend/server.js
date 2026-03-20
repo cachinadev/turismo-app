@@ -92,12 +92,19 @@ function buildCorsOptions() {
  * ------------------------------------------------------ */
 app.disable("x-powered-by");
 
-// trust proxy: en prod normalmente sí; en dev normalmente no.
-// Si quieres forzar: TRUST_PROXY=1
-const trustProxy =
-  process.env.TRUST_PROXY !== undefined
-    ? process.env.TRUST_PROXY === "1"
-    : process.env.NODE_ENV === "production";
+// This app normally runs behind nginx. Default to one trusted proxy hop
+// unless explicitly disabled with TRUST_PROXY=0.
+function resolveTrustProxy() {
+  const raw = process.env.TRUST_PROXY;
+  if (raw === undefined) return 1;
+  if (raw === "0" || raw === "false") return false;
+  if (raw === "1" || raw === "true") return 1;
+
+  const numeric = Number(raw);
+  return Number.isFinite(numeric) ? numeric : 1;
+}
+
+const trustProxy = resolveTrustProxy();
 app.set("trust proxy", trustProxy);
 
 app.use(cookieParser());
@@ -228,6 +235,7 @@ async function start() {
   const server = app.listen(port, host, () => {
     console.log(`🚀 Backend running at http://${host === "0.0.0.0" ? "localhost" : host}:${port}`);
     console.log(`✅ CORS whitelist: ${getCorsWhitelist().join(", ")}`);
+    console.log(`ℹ️  trust proxy: ${trustProxy}`);
   });
 
   /* 🧹 Graceful shutdown */
