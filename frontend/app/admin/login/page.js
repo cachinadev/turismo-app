@@ -169,7 +169,12 @@ function AdminLoginInner() {
 
         router.replace(next);
       } catch (err) {
-        setError(err?.message || "Could not sign in.");
+        const rawMessage = String(err?.message || "").trim();
+        if (/failed to fetch/i.test(rawMessage)) {
+          setError(`Network error: cannot reach ${API_BASE}/api/auth/login. Check NEXT_PUBLIC_API_URL and the backend/CORS config.`);
+        } else {
+          setError(rawMessage || "Could not sign in.");
+        }
       } finally {
         setSubmitting(false);
       }

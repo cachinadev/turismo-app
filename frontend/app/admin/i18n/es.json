@@ -1,5 +1,8 @@
 {
-  "lang": { "es": "Español", "en": "English" },
+  "lang": {
+    "es": "Español",
+    "en": "English"
+  },
   "admin": {
     "title": "Administración",
     "dashboard": "Dashboard",
@@ -116,7 +119,35 @@
   },
   "dashboard": {
     "loading": "Cargando…",
-    "autoRefresh": "Auto-actualizar (30s)"
+    "autoRefresh": "Auto-actualizar (30s)",
+    "operationsHub": "Centro de operaciones",
+    "operationsSummary": "Monitorea nuevas reservas, mantén los paquetes listos para vender y detecta problemas antes de que afecten las ventas.",
+    "reservationAlerts": "Alertas de reservas",
+    "notificationsTitle": "Últimas reservas",
+    "markSeen": "Marcar como revisadas",
+    "newReservations": "Nuevas reservas",
+    "newReservationsHint": "Han llegado reservas nuevas desde tu última revisión.",
+    "newReservationsNone": "No hay reservas nuevas sin revisar.",
+    "newReservationsBadge": "{count} reservas nuevas",
+    "pendingBookings": "Confirmaciones pendientes",
+    "pendingBookingsHint": "Estas requieren seguimiento del equipo.",
+    "todayBookings": "Reservadas en las últimas 24h",
+    "todayBookingsHint": "Útil para planificar la operación del día.",
+    "packagesToFix": "Paquetes por corregir",
+    "packagesToFixHint": "Borradores, sin media o con precio cero.",
+    "performance": "Resumen del rendimiento",
+    "attentionQueue": "Cola de atención",
+    "quickActions": "Acciones rápidas",
+    "quickActionsTitle": "Mueve la operación rápido",
+    "quickNewPackage": "Crear paquete",
+    "quickNewPackageHint": "Lanza una nueva oferta comercial con brochure, itinerario y media.",
+    "quickManagePackages": "Gestionar catálogo",
+    "quickManagePackagesHint": "Revisa precios, visibilidad y contenido de los paquetes.",
+    "quickTestimonials": "Moderar testimonios",
+    "quickTestimonialsHint": "Aprueba o rechaza prueba social antes de publicarla.",
+    "reviewReservations": "Revisar reservas",
+    "noRecentReservations": "Aún no hay reservas recientes.",
+    "sidebarHint": "Usa el dashboard para detectar reservas nuevas rápido y mantener el catálogo limpio."
   },
   "currency": {
     "pen": "soles (PEN)",
@@ -292,5 +323,8 @@
   "notice": {
     "text": "Admin usa /admin",
     "link": "Ir a /admin"
+  },
+  "brand": {
+    "company": "Vicuña Adventures"
   }
 }

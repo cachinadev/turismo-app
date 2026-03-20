@@ -1,5 +1,8 @@
 {
-  "lang": { "es": "Español", "en": "English" },
+  "lang": {
+    "es": "Español",
+    "en": "English"
+  },
   "admin": {
     "title": "Admin",
     "dashboard": "Dashboard",
@@ -116,7 +119,35 @@
   },
   "dashboard": {
     "loading": "Loading…",
-    "autoRefresh": "Auto-refresh (30s)"
+    "autoRefresh": "Auto-refresh (30s)",
+    "operationsHub": "Operations hub",
+    "operationsSummary": "Track new reservations, keep package content commercial-ready, and surface issues before they affect sales.",
+    "reservationAlerts": "Reservation alerts",
+    "notificationsTitle": "Latest reservation feed",
+    "markSeen": "Mark as reviewed",
+    "newReservations": "New reservations",
+    "newReservationsHint": "New bookings arrived since your last review.",
+    "newReservationsNone": "No unseen reservations right now.",
+    "newReservationsBadge": "{count} new reservations",
+    "pendingBookings": "Pending confirmations",
+    "pendingBookingsHint": "These need follow-up from the team.",
+    "todayBookings": "Booked in the last 24h",
+    "todayBookingsHint": "Useful for same-day operational planning.",
+    "packagesToFix": "Packages needing attention",
+    "packagesToFixHint": "Drafts, missing media, or zero-price packages.",
+    "performance": "Performance snapshot",
+    "attentionQueue": "Attention queue",
+    "quickActions": "Quick actions",
+    "quickActionsTitle": "Move the operation forward",
+    "quickNewPackage": "Create package",
+    "quickNewPackageHint": "Launch a new commercial offer with brochure, itinerary and media.",
+    "quickManagePackages": "Manage catalog",
+    "quickManagePackagesHint": "Review prices, visibility and package content.",
+    "quickTestimonials": "Moderate testimonials",
+    "quickTestimonialsHint": "Approve or reject social proof before it goes live.",
+    "reviewReservations": "Review reservations",
+    "noRecentReservations": "No recent reservations yet.",
+    "sidebarHint": "Use the dashboard to catch new reservations fast and keep package content clean."
   },
   "currency": {
     "pen": "soles (PEN)",
@@ -292,5 +323,8 @@
   "notice": {
     "text": "Admin uses /admin",
     "link": "Go to /admin"
+  },
+  "brand": {
+    "company": "Vicuña Adventures"
   }
 }

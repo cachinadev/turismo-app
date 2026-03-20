@@ -62,6 +62,7 @@ const bookingPublicId = (b) => String(b?.reservationId || b?.publicId || b?.code
 
 /** What we show/copy in dashboard */
 const bookingIdForUI = (b) => bookingPublicId(b) || bookingDbId(b);
+const RESERVATION_SEEN_KEY = "admin_last_seen_reservation_at";
 
 /* ===================== Fetch helper ===================== */
 /** fetch JSON with timeout + optional external abort (no AbortSignal.any) */
@@ -153,6 +154,7 @@ export default function DashboardInner() {
   const [events, setEvents] = useState([]);
   const [testimonials, setTestimonials] = useState([]);
   const [bookingsResp, setBookingsResp] = useState({ page: 1, limit: 30, total: 0, pages: 1, items: [] });
+  const [latestReservations, setLatestReservations] = useState([]);
   const [stats, setStats] = useState(null);
 
   /* ===== Loading ===== */
@@ -198,6 +200,7 @@ export default function DashboardInner() {
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [deletingPkgId, setDeletingPkgId] = useState(null);
   const [lastCopiedKey, setLastCopiedKey] = useState("");
+  const [lastSeenReservationAt, setLastSeenReservationAt] = useState("");
 
   /* ===== Refs ===== */
   const toastRef = useRef(null);
@@ -284,6 +287,12 @@ export default function DashboardInner() {
     };
   }, []);
 
+  useEffect(() => {
+    try {
+      setLastSeenReservationAt(localStorage.getItem(RESERVATION_SEEN_KEY) || "");
+    } catch {}
+  }, []);
+
   /* ===================== Fetchers ===================== */
   const bQDebounced = useDebouncedValue(bQ, 350);
   const eTypeDebounced = useDebouncedValue(eType, 350);
@@ -351,6 +360,33 @@ export default function DashboardInner() {
 
     setLoadingBookings(false);
   }, [abortKey, authHeaders, bLimit, bPage, buildBookingsUrl, getToken, handle401, t]);
+
+  const fetchLatestReservations = useCallback(async () => {
+    if (!getToken()) {
+      setLatestReservations([]);
+      return handle401();
+    }
+
+    const qs = new URLSearchParams();
+    qs.set("page", "1");
+    qs.set("limit", "12");
+    qs.set("sort", "created_desc");
+    qs.set("includeCancelled", "false");
+
+    const res = await fetchJSON(api(`bookings?${qs.toString()}`), {
+      headers: { ...authHeaders },
+      signal: abortKey("latestReservations"),
+      timeoutMs: 18000,
+    });
+
+    if (!res.ok) {
+      if (res.status === 401) return handle401();
+      setLatestReservations([]);
+      return;
+    }
+
+    setLatestReservations(parseList(res.json || []));
+  }, [abortKey, authHeaders, getToken, handle401]);
 
   const fetchStats = useCallback(async () => {
     setLoadingStats(true);
@@ -457,13 +493,14 @@ export default function DashboardInner() {
         setErr("");
       }
       await Promise.all([fetchPackages(), fetchBookings(), fetchStats(), fetchEvents()]);
+      await fetchLatestReservations();
       setLastUpdated(new Date());
       if (!silent) {
         setLoading(false);
         showToast(t("toast.dashboardUpdated", "Dashboard updated"), "success");
       }
     },
-    [fetchBookings, fetchEvents, fetchPackages, fetchStats, showToast, t]
+    [fetchBookings, fetchEvents, fetchLatestReservations, fetchPackages, fetchStats, showToast, t]
   );
 
   /* ===================== Effects ===================== */
@@ -857,10 +894,86 @@ export default function DashboardInner() {
     );
   }, [uiStats, bStatus, bookingsResp.total, bookingsResp.items]);
 
+  const lastSeenReservationMs = useMemo(() => {
+    const ms = lastSeenReservationAt ? new Date(lastSeenReservationAt).getTime() : 0;
+    return Number.isFinite(ms) ? ms : 0;
+  }, [lastSeenReservationAt]);
+
+  const reservationNotifications = useMemo(() => {
+    const now = Date.now();
+    const dayAgo = now - 24 * 60 * 60 * 1000;
+    const items = (latestReservations || []).map((b) => {
+      const createdAt = b?.createdAt ? new Date(b.createdAt) : null;
+      const createdMs = createdAt && Number.isFinite(createdAt.getTime()) ? createdAt.getTime() : 0;
+      return {
+        ...b,
+        createdAtDate: createdAt,
+        createdAtMs: createdMs,
+        isUnseen: createdMs > lastSeenReservationMs,
+        isToday: createdMs >= dayAgo,
+      };
+    });
+
+    return {
+      items,
+      unseen: items.filter((b) => b.isUnseen),
+      today: items.filter((b) => b.isToday),
+      pending: items.filter((b) => (b?.status || "").toLowerCase() === "pendiente"),
+    };
+  }, [latestReservations, lastSeenReservationMs]);
+
+  const attentionCards = useMemo(
+    () => [
+      {
+        key: "new",
+        title: t("dashboard.newReservations", "New reservations"),
+        value: reservationNotifications.unseen.length,
+        subtitle:
+          reservationNotifications.unseen.length > 0
+            ? t("dashboard.newReservationsHint", "New bookings arrived since your last review.")
+            : t("dashboard.newReservationsNone", "No unseen reservations right now."),
+        tone: reservationNotifications.unseen.length > 0 ? "danger" : "default",
+      },
+      {
+        key: "pending",
+        title: t("dashboard.pendingBookings", "Pending confirmations"),
+        value:
+          uiStats?.bookings?.byStatus?.Pendiente ??
+          bookingsResp.items.filter((b) => (b?.status || "").toLowerCase() === "pendiente").length,
+        subtitle: t("dashboard.pendingBookingsHint", "These need follow-up from the team."),
+        tone: "warning",
+      },
+      {
+        key: "today",
+        title: t("dashboard.todayBookings", "Booked in the last 24h"),
+        value: reservationNotifications.today.length,
+        subtitle: t("dashboard.todayBookingsHint", "Useful for same-day operational planning."),
+        tone: "info",
+      },
+      {
+        key: "drafts",
+        title: t("dashboard.packagesToFix", "Packages needing attention"),
+        value: packages.filter((p) => p.active === false || !Array.isArray(p.media) || p.media.length === 0 || !Number(p.price)).length,
+        subtitle: t("dashboard.packagesToFixHint", "Drafts, missing media, or zero-price packages."),
+        tone: "default",
+      },
+    ],
+    [bookingsResp.items, packages, reservationNotifications.today.length, reservationNotifications.unseen.length, t, uiStats]
+  );
+
+  const markReservationsSeen = useCallback(() => {
+    const latestMs = reservationNotifications.items.reduce((max, item) => Math.max(max, item.createdAtMs || 0), Date.now());
+    const iso = new Date(latestMs).toISOString();
+    try {
+      localStorage.setItem(RESERVATION_SEEN_KEY, iso);
+    } catch {}
+    setLastSeenReservationAt(iso);
+  }, [reservationNotifications.items]);
+
   /* ===================== UI ===================== */
   return (
     <AdminGuard>
-      <section className="container-default py-20">
+      <section className="container-default py-6">
         {/* Toast */}
         {toast && (
           <div
@@ -877,75 +990,134 @@ export default function DashboardInner() {
           </div>
         )}
 
-        {/* Header */}
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
-            <div className="flex items-center gap-3">
-              {COMPANY_LOGO ? (
-                <img
-                  src={COMPANY_LOGO}
-                  alt={COMPANY_NAME}
-                  className="w-10 h-10 rounded-xl object-contain border bg-white"
-                />
-              ) : (
-                <div className="w-10 h-10 rounded-xl bg-brand-600 text-white flex items-center justify-center font-bold">
-                  {COMPANY_NAME.slice(0, 1).toUpperCase()}
-                </div>
-              )}
-
-              <div>
-                <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
-                  {COMPANY_NAME} • {t("admin.title", "Admin")}
-                </h2>
-                <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <span
-                    className={classNames(
-                      "text-xs px-2 py-1 rounded",
-                      online ? "bg-green-50 text-green-700" : "bg-rose-50 text-rose-700"
+        <div className="flex flex-col gap-6">
+          <div className="space-y-6">
+            <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-[linear-gradient(135deg,_#0f172a_0%,_#164e63_55%,_#0f766e_100%)] px-5 py-5 text-white shadow-lg sm:px-6">
+              <div className="flex flex-col gap-4">
+                <div className="max-w-2xl">
+                  <div className="flex items-center gap-3">
+                    {COMPANY_LOGO ? (
+                      <img
+                        src={COMPANY_LOGO}
+                        alt={COMPANY_NAME}
+                        className="h-12 w-12 rounded-2xl border border-white/20 bg-white/10 object-contain"
+                      />
+                    ) : (
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-lg font-semibold">
+                        {COMPANY_NAME.slice(0, 1).toUpperCase()}
+                      </div>
                     )}
-                  >
-                    {headerSubline}
-                  </span>
-                  {loading && (
-                    <span className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-200">
-                      {t("dashboard.loading", "Loading…")}
+                    <div className="text-sm uppercase tracking-[0.24em] text-cyan-100/80">
+                      {t("dashboard.operationsHub", "Operations hub")}
+                    </div>
+                  </div>
+
+                  <h2 className="mt-3 max-w-xl text-[1.9rem] font-semibold tracking-tight leading-[1.02] sm:text-[2.05rem]">
+                    {COMPANY_NAME}
+                  </h2>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-cyan-50/85">
+                    {t(
+                      "dashboard.operationsSummary",
+                      "Track new reservations, keep package content commercial-ready, and surface issues before they affect sales."
+                    )}
+                  </p>
+
+                  <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
+                    <span
+                      className={classNames(
+                        "rounded-full border px-3 py-1.5",
+                        online ? "border-emerald-300/40 bg-emerald-400/15 text-emerald-50" : "border-rose-300/40 bg-rose-400/15 text-rose-50"
+                      )}
+                    >
+                      {headerSubline}
                     </span>
-                  )}
+                    {loading && (
+                      <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-cyan-50">
+                        {t("dashboard.loading", "Loading…")}
+                      </span>
+                    )}
+                    {reservationNotifications.unseen.length > 0 && (
+                      <span className="rounded-full border border-amber-300/40 bg-amber-400/20 px-3 py-1.5 text-amber-50">
+                        {t("dashboard.newReservationsBadge", "{count} new reservations").replace("{count}", String(reservationNotifications.unseen.length))}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <label className="flex items-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-cyan-50">
+                    <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
+                    {t("dashboard.autoRefresh", "Auto-refresh (30s)")}
+                  </label>
+                  <button className="btn min-h-[56px] border-0 bg-white px-4 text-center text-slate-900 hover:bg-cyan-50" onClick={() => fetchAll()}>
+                    {t("actions.refresh", "Refresh")}
+                  </button>
+                  <button
+                    className="btn min-h-[56px] border border-white/15 bg-white/10 px-4 text-center text-white hover:bg-white/20"
+                    onClick={() => {
+                      setTab("bookings");
+                      markReservationsSeen();
+                    }}
+                  >
+                    {t("dashboard.reviewReservations", "Review reservations")}
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    className="btn min-h-[56px] border border-white/15 bg-transparent px-4 text-center text-white hover:bg-white/10"
+                    title={t("actions.signOut", "Sign out")}
+                  >
+                    {t("actions.signOut", "Sign out")}
+                  </button>
                 </div>
               </div>
             </div>
+          </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="flex items-center gap-2 text-sm bg-slate-50 border rounded-lg px-3 py-2">
-                <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
-                {t("dashboard.autoRefresh", "Auto-refresh (30s)")}
-              </label>
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.95fr)]">
+            <div>
+              <div>
+                <div className="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                  {t("dashboard.performance", "Performance snapshot")}
+                </div>
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-6">
+                  <KPI title={t("kpi.totalPackages", "Total packages")} value={loadingStats ? "…" : uiStats?.packages?.total ?? packages.length} />
+                  <KPI
+                    title={t("kpi.activePackages", "Active packages")}
+                    value={loadingStats ? "…" : uiStats?.packages?.active ?? packages.filter((p) => p.active !== false).length}
+                  />
+                  <KPI
+                    title={t("kpi.promos", "Promos (any)")}
+                    value={loadingStats ? "…" : uiStats?.packages?.promoAny ?? packages.filter((p) => p.isPromoActive).length}
+                  />
+                  <KPI title={t("kpi.activeBookings", "Active bookings")} value={loadingStats ? "…" : uiStats?.bookings?.active ?? bookingsResp.total} />
+                  <KPI title={t("kpi.cancelled", "Cancelled")} value={loadingStats ? "…" : kpiCancelled} accent="danger" />
 
-              <button className="btn" onClick={() => fetchAll()}>
-                {t("actions.refresh", "Refresh")}
-              </button>
+                  {uiStats?.revenueByCurrency
+                    ? Object.entries(uiStats.revenueByCurrency).map(([cur, amount]) => (
+                        <KPI
+                          key={cur}
+                          title={`${t("kpi.revenue", "Revenue")} · ${currencyLabel(cur)}`}
+                          value={money(amount, cur, locale)}
+                          subtitle={t("bookings.finalized", "(Finalized)")}
+                        />
+                      ))
+                    : null}
+                </div>
+              </div>
 
-              <Link href="/admin/packages" className="btn btn-ghost">
-                {t("admin.packages", "Packages")}
-              </Link>
-              <Link href="/admin/testimonials" className="btn btn-ghost">
-                {t("admin.testimonials", "Testimonials")}
-              </Link>
-              <Link href="/admin/activity" className="btn btn-ghost">
-                {t("admin.activity", "Activity log")}
-              </Link>
-
-              <button
-                onClick={handleLogout}
-                className="btn btn-ghost text-red-600 hover:bg-red-50 hover:text-red-700"
-                title={t("actions.signOut", "Sign out")}
-              >
-                {t("actions.signOut", "Sign out")}
-              </button>
+              <div>
+                <div className="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                  {t("dashboard.attentionQueue", "Attention queue")}
+                </div>
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  {attentionCards.map((item) => (
+                    <AttentionCard key={item.key} {...item} />
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Tabs */}
           <div className="flex flex-wrap items-center gap-2">
             <button
               className={classNames(
@@ -985,40 +1157,11 @@ export default function DashboardInner() {
             </button>
           </div>
 
-          {/* Errors (only when no bookings are visible to avoid stale banner) */}
           {showGlobalError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
               <p className="text-red-700">{err}</p>
             </div>
           )}
-        </div>
-
-        {/* KPIs */}
-        <div className="mt-6">
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-            <KPI title={t("kpi.totalPackages", "Total packages")} value={loadingStats ? "…" : uiStats?.packages?.total ?? packages.length} />
-            <KPI
-              title={t("kpi.activePackages", "Active packages")}
-              value={loadingStats ? "…" : uiStats?.packages?.active ?? packages.filter((p) => p.active !== false).length}
-            />
-            <KPI
-              title={t("kpi.promos", "Promos (any)")}
-              value={loadingStats ? "…" : uiStats?.packages?.promoAny ?? packages.filter((p) => p.isPromoActive).length}
-            />
-            <KPI title={t("kpi.activeBookings", "Active bookings")} value={loadingStats ? "…" : uiStats?.bookings?.active ?? bookingsResp.total} />
-            <KPI title={t("kpi.cancelled", "Cancelled")} value={loadingStats ? "…" : kpiCancelled} accent="danger" />
-
-            {uiStats?.revenueByCurrency
-              ? Object.entries(uiStats.revenueByCurrency).map(([cur, amount]) => (
-                  <KPI
-                    key={cur}
-                    title={`${t("kpi.revenue", "Revenue")} · ${currencyLabel(cur)}`}
-                    value={money(amount, cur, locale)}
-                    subtitle={t("bookings.finalized", "(Finalized)")}
-                  />
-                ))
-              : null}
-          </div>
         </div>
 
         {/* ===================== TAB: BOOKINGS ===================== */}
@@ -1068,8 +1211,8 @@ export default function DashboardInner() {
                   }}
                 />
 
-                <select
-                  className="input md:col-span-2"
+                <FancySelect
+                  className="md:col-span-2"
                   value={bStatus}
                   onChange={(e) => {
                     setBStatus(e.target.value);
@@ -1082,15 +1225,15 @@ export default function DashboardInner() {
                       {s.label}
                     </option>
                   ))}
-                </select>
+                </FancySelect>
 
-                <select className="input md:col-span-2" value={bSort} onChange={(e) => setBSort(e.target.value)}>
+                <FancySelect className="md:col-span-2" value={bSort} onChange={(e) => setBSort(e.target.value)}>
                   {BOOKING_SORTS.map((s) => (
                     <option key={s.v} value={s.v}>
                       {s.label}
                     </option>
                   ))}
-                </select>
+                </FancySelect>
 
                 <label className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border md:col-span-2">
                   <input
@@ -1113,8 +1256,9 @@ export default function DashboardInner() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <select
-                      className="input !py-1 !h-9"
+                    <FancySelect
+                      className="min-w-[112px]"
+                      compact
                       value={bLimit}
                       onChange={(e) => {
                         setBLimit(Number(e.target.value || 30));
@@ -1127,7 +1271,7 @@ export default function DashboardInner() {
                           {t("bookings.perPage", `${n}/page`).replace("{n}", String(n))}
                         </option>
                       ))}
-                    </select>
+                    </FancySelect>
 
                     <div className="flex items-center gap-1">
                       <button className="btn btn-ghost btn-sm" onClick={() => setBPage(1)} disabled={bPage === 1}>
@@ -1550,11 +1694,11 @@ export default function DashboardInner() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
                     <label className="label">{t("testimonials.filterStatus", "Status")}</label>
-                    <select className="input w-full" value={tStatus} onChange={(e) => setTStatus(e.target.value)}>
+                    <FancySelect className="w-full" value={tStatus} onChange={(e) => setTStatus(e.target.value)}>
                       <option value="pending">{t("testimonials.statusPending", "Pending")}</option>
                       <option value="approved">{t("testimonials.statusApproved", "Approved")}</option>
                       <option value="rejected">{t("testimonials.statusRejected", "Rejected")}</option>
-                    </select>
+                    </FancySelect>
                   </div>
                   <div className="md:col-span-2">
                     <label className="label">{t("testimonials.filterSearch", "Search")}</label>
@@ -1790,11 +1934,53 @@ export default function DashboardInner() {
 function KPI({ title, value, subtitle = "", accent = "default" }) {
   return (
     <div className="card">
-      <div className="card-body">
-        <p className="text-xs text-slate-500">{title}</p>
-        <p className={classNames("text-xl font-semibold", accent === "danger" ? "text-rose-600" : "")}>{value}</p>
-        {subtitle ? <p className="text-xs text-slate-500 mt-1">{subtitle}</p> : null}
+      <div className="card-body py-4">
+        <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">{title}</p>
+        <p className={classNames("mt-2 text-lg font-semibold leading-none", accent === "danger" ? "text-rose-600" : "")}>{value}</p>
+        {subtitle ? <p className="mt-2 text-[11px] leading-4 text-slate-500">{subtitle}</p> : null}
       </div>
+    </div>
+  );
+}
+
+function AttentionCard({ title, value, subtitle = "", tone = "default" }) {
+  const tones = {
+    default: "border-slate-200 bg-white",
+    info: "border-sky-200 bg-sky-50/60",
+    warning: "border-amber-200 bg-amber-50/60",
+    danger: "border-rose-200 bg-rose-50/60",
+  };
+
+  return (
+    <div className={classNames("rounded-3xl border p-5 shadow-sm", tones[tone] || tones.default)}>
+      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{title}</div>
+      <div className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">{value}</div>
+      {subtitle ? <div className="mt-2 text-sm leading-6 text-slate-600">{subtitle}</div> : null}
+    </div>
+  );
+}
+
+function FancySelect({ className = "", compact = false, children, ...props }) {
+  return (
+    <div className={classNames("relative", className)}>
+      <select
+        {...props}
+        className={classNames(
+          "w-full appearance-none rounded-2xl border border-slate-200 bg-[linear-gradient(180deg,_#ffffff_0%,_#f8fafc_100%)] text-slate-800 shadow-sm outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100",
+          compact ? "h-10 pl-3 pr-10 text-sm" : "h-12 pl-4 pr-11 text-sm font-medium"
+        )}
+      >
+        {children}
+      </select>
+      <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400">
+        <svg viewBox="0 0 20 20" fill="currentColor" className={classNames(compact ? "h-4 w-4" : "h-5 w-5")}>
+          <path
+            fillRule="evenodd"
+            d="M5.23 7.21a.75.75 0 011.06.02L10 11.144l3.71-3.915a.75.75 0 111.08 1.04l-4.25 4.485a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </span>
     </div>
   );
 }

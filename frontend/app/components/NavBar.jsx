@@ -248,25 +248,38 @@ const NavLink = ({ label, href, isActive, onClick, mobile = false, dark = false 
   );
 };
 
-const DropdownMenu = ({ title, items }) => {
+const DropdownMenu = ({ items, alignClass = 'left-0' }) => {
   return (
-    <div className="absolute left-1/2 -translate-x-1/2 mt-3 w-[240px] bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden">
-      <div className="p-2 max-h-[280px] overflow-auto">
+    <div
+      className={`absolute top-full z-50 mt-3 w-[260px] overflow-hidden rounded-[20px] border border-white/65 bg-[linear-gradient(180deg,_rgba(255,255,255,0.98)_0%,_rgba(244,248,251,0.96)_100%)] shadow-[0_24px_80px_rgba(4,24,38,0.24)] backdrop-blur-xl ${alignClass}`}
+    >
+      <div className="max-h-[320px] overflow-auto p-2.5">
         {items.map((item) => (
           <Link
             key={item.href}
             href={item.href}
-            className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-colors"
+            className="group flex items-center justify-between gap-3 rounded-2xl border border-transparent px-3.5 py-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#0086C0]/12 hover:bg-white hover:shadow-[0_12px_30px_rgba(15,23,42,0.08)]"
           >
             <div className="min-w-0">
-              <div className="text-sm font-semibold text-slate-800 truncate">{item.title}</div>
-              {item.sub ? <div className="text-xs text-slate-500 truncate">{item.sub}</div> : null}
+              <div
+                className="truncate text-[14px] font-semibold text-slate-900 transition-colors duration-200 group-hover:text-[#0E374A]"
+                style={{ fontFamily: "'Bree Serif', serif" }}
+              >
+                {item.title}
+              </div>
+              {item.sub ? (
+                <div className="mt-1 truncate text-[11px] font-medium tracking-[0.12em] uppercase text-slate-500">
+                  {item.sub}
+                </div>
+              ) : null}
             </div>
             {item.badge ? (
-              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[#0086C0]/10 text-[#0086C0] whitespace-nowrap">
+              <span className="whitespace-nowrap rounded-full bg-[#0086C0]/10 px-2.5 py-1 text-[11px] font-semibold text-[#0086C0]">
                 {item.badge}
               </span>
-            ) : null}
+            ) : (
+              <span className="text-slate-300 transition-colors duration-200 group-hover:text-[#0086C0]">↗</span>
+            )}
           </Link>
         ))}
       </div>
@@ -597,8 +610,12 @@ export default function NavBar() {
         ${scrolled ? 'shadow-[0_8px_25px_rgba(0,0,0,0.25)]' : ''}
       `}
     >
+      {menuOpen && (
+        <div className="pointer-events-none fixed inset-0 top-20 z-0 bg-slate-950/22 backdrop-blur-[1.5px]" />
+      )}
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20">
+        <div className="relative z-10 flex items-center justify-between h-20">
           {/* Logo */}
           <Link
             href={buildHref('/')}
@@ -616,7 +633,6 @@ export default function NavBar() {
               if (isPackages || isDestinations) {
                 const openKey = isPackages ? 'packages' : 'destinations';
                 const items = isPackages ? packageItems : destinationItems;
-                const title = isPackages ? t('packages') : t('destinations');
                 const handleOpen = () => {
                   if (closeMenuRef.current) clearTimeout(closeMenuRef.current);
                   setMenuOpen(openKey);
@@ -626,6 +642,9 @@ export default function NavBar() {
                   if (closeMenuRef.current) clearTimeout(closeMenuRef.current);
                   closeMenuRef.current = setTimeout(() => setMenuOpen(null), 180);
                 };
+                const dropdownAlignClass = isPackages
+                  ? 'left-1/2 -translate-x-[34%]'
+                  : 'left-1/2 -translate-x-[44%]';
                 return (
                   <div
                     key={key}
@@ -635,7 +654,7 @@ export default function NavBar() {
                   >
                     <NavLink label={t(key)} href={buildHref(path)} isActive={checkActive(path)} dark />
                     {menuOpen === openKey && items.length ? (
-                      <DropdownMenu title={title} items={items} />
+                      <DropdownMenu items={items} alignClass={dropdownAlignClass} />
                     ) : null}
                   </div>
                 );
