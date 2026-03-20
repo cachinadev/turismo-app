@@ -85,6 +85,22 @@ function fmtWhenISO(dateStr, locale = "es-PE") {
   }
 }
 
+function fmtTourDate(dateStr, pkg, locale = "es-PE") {
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d)) return "-";
+
+    const dateOnly = d.toLocaleDateString(locale, { timeZone: "America/Lima" });
+    const firstStartTime = Array.isArray(pkg?.startTimes)
+      ? String(pkg.startTimes.find((v) => String(v || "").trim()) || "").trim()
+      : "";
+
+    return firstStartTime ? `${dateOnly} · ${firstStartTime}` : dateOnly;
+  } catch {
+    return "-";
+  }
+}
+
 function esc(s) {
   return String(s || "");
 }
@@ -321,7 +337,7 @@ async function sendBookingEmails({ booking, pkg }) {
   const reservationId = booking?.reservationId || booking?._id?.toString() || "N/A";
   const pkgTitle = pkg?.title || booking?.packageMeta?.title || "Paquete";
   const currency = booking?.currency || pkg?.currency || "PEN";
-  const when = fmtWhenISO(booking?.date, "es-PE");
+  const when = fmtTourDate(booking?.date, pkg, "es-PE");
 
   const adults = booking?.people?.adults || 0;
   const children = booking?.people?.children || 0;
@@ -348,7 +364,7 @@ async function sendBookingEmails({ booking, pkg }) {
   const paymentHtml = renderPaymentHTML(payment);
   const paymentTxt = renderPaymentText(payment);
 
-  const html = `
+  const sharedHtml = `
   <div style="font-family:Arial,Helvetica,sans-serif; line-height:1.35; color:#111;">
     <div style="max-width:700px;margin:0 auto;border:1px solid #eee;border-radius:14px;overflow:hidden;">
       <div style="padding:18px 20px;background:#0b1220;color:#fff;">
@@ -406,9 +422,6 @@ async function sendBookingEmails({ booking, pkg }) {
             ? `<div style="margin-top:12px;font-size:13px;"><b>Notas:</b><div style="margin-top:4px;color:#333;">${esc(notes)}</div></div>`
             : ""
         }
-
-        <h3 style="margin:16px 0 8px 0;font-size:15px;">💳 Datos de pago (Perú)</h3>
-        ${paymentHtml}
       </div>
 
       <div style="padding:14px 20px;background:#f7f7f7;color:#555;font-size:12px;">
@@ -421,7 +434,20 @@ async function sendBookingEmails({ booking, pkg }) {
   </div>
   `;
 
-  const text =
+  const userHtml = sharedHtml.replace(
+    "</div>\n\n      <div style=\"padding:14px 20px;background:#f7f7f7;color:#555;font-size:12px;\">",
+    `\n        <h3 style="margin:16px 0 8px 0;font-size:15px;">💳 Datos de pago (Perú)</h3>\n        ${paymentHtml}\n      </div>\n\n      <div style="padding:14px 20px;background:#f7f7f7;color:#555;font-size:12px;">`
+  );
+
+  const adminHtml = sharedHtml.replace(
+    "<h2 style=\"margin:16px 0 6px 0;font-size:18px;\">¡Reserva recibida!</h2>",
+    "<h2 style=\"margin:16px 0 6px 0;font-size:18px;\">Nueva reserva recibida</h2>"
+  ).replace(
+    "En breve te contactaremos para confirmar disponibilidad. Para acelerar la confirmación, puedes realizar el pago y enviar el comprobante.",
+    "Se registró una nueva reserva en el sitio. Revisa los datos del pasajero y continúa el seguimiento comercial."
+  );
+
+  const userText =
 `Reserva ${status}
 ID: ${reservationId}
 Paquete: ${pkgTitle}
@@ -442,27 +468,45 @@ ${paymentTxt}
 Adjuntamos el brochure del paquete.
 ${waUrl ? `WhatsApp: ${waUrl}` : ""}`.trim();
 
-  // Attachments: brochure + logo (CID)
-  const brochureBuffer = await fetchBrochurePDFBuffer(pkg?._id || booking?.package);
+  const adminText =
+`Nueva reserva ${status}
+ID: ${reservationId}
+Paquete: ${pkgTitle}
+Fecha del tour: ${when}
+Tipo: ${booking?.tourType === "exclusive" ? "Exclusivo" : "Colectivo"}
+Pasajeros: Adultos ${adults} / Niños ${children}
+Precio unitario: ${unitStr} ${currency}
+Total estimado: ${totalStr} ${currency}
 
-  const attachments = [];
-  if (logoAtt) attachments.push(logoAtt);
+Cliente: ${custName} (${custEmail})
+Tel: ${custPhone}
+País: ${custCountry}
+Notas: ${notes || "-"}
 
-  if (brochureBuffer) {
-    attachments.push({
-      filename: `brochure-${pkg?.slug || booking?.packageMeta?.slug || "paquete"}.pdf`,
-      content: brochureBuffer,
-      contentType: "application/pdf",
-    });
+${waUrl ? `WhatsApp: ${waUrl}` : ""}`.trim();
+
+  const baseAttachments = [];
+  if (logoAtt) baseAttachments.push(logoAtt);
+
+  const userAttachments = [...baseAttachments];
+  if (custEmail) {
+    const brochureBuffer = await fetchBrochurePDFBuffer(pkg?._id || booking?.package);
+    if (brochureBuffer) {
+      userAttachments.push({
+        filename: `brochure-${pkg?.slug || booking?.packageMeta?.slug || "paquete"}.pdf`,
+        content: brochureBuffer,
+        contentType: "application/pdf",
+      });
+    }
   }
 
   const userMsg = {
     from,
     to: custEmail,
     subject: subjectUser,
-    html,
-    text,
-    attachments,
+    html: userHtml,
+    text: userText,
+    attachments: userAttachments,
     replyTo,
   };
 
@@ -471,9 +515,9 @@ ${waUrl ? `WhatsApp: ${waUrl}` : ""}`.trim();
     to: toAdmin,
     bcc: bcc.length ? bcc : undefined,
     subject: subjectAdmin,
-    html,
-    text,
-    attachments,
+    html: adminHtml,
+    text: adminText,
+    attachments: baseAttachments,
     ...(safeCustomerReplyTo ? { replyTo: safeCustomerReplyTo } : replyTo ? { replyTo } : {}),
   };
 
